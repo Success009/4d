@@ -1,0 +1,458 @@
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{font-family:Arial,sans-serif;margin:20px;background-color:#47c8ff;display:flex;flex-direction:column;align-items:flex-start}
+#title{text-align:center;font-size:36px;font-weight:bold;margin-bottom:10px;width:100%;color:#FC2E2E;letter-spacing:1.6px;font-style:italic}
+label{display:block;margin-bottom:5px;font-weight:bold}
+input,button,select{margin-bottom:10px;padding:8px;border:1px solid #ccc;border-radius:4px;width:300px;box-sizing:border-box}
+button{background-color:#4caf50;color:white;cursor:pointer;width:calc(200px/2);transition:background-color .3s ease}
+button:hover{background-color:#45a049}
+#results{margin-top:20px}
+.packet{border:1px solid #ccc;padding:10px;margin-bottom:10px;background-color:white}
+.packet p{margin:0}
+.packet button{margin-top:5px;width:calc(300px/2)}
+#filterArea,#searchArea{margin-top:20px;width:100%}
+#totalPrice,#resultsTitle{font-weight:bold;margin-top:20px}
+#aboutCourierTicket{margin-top:10px;width:300px;white-space:pre-line}
+#updateButton,#moreButton{margin-top:10px}
+#Search,#Show,#Export,#Save{color:white;cursor:pointer;width:calc(200px/2);transition:background-color .3s ease}
+#Search{background-color:#e61414}
+#Show{background-color:#0b0be0}
+#Save{background-color:#ff8800}
+#Search:hover,#Show:hover,#Save:hover{transform:scale(1.1)}
+#entrySection{display:block}
+table{width:100%;border-collapse:collapse;margin-top:20px}
+table,th,td{border:1px solid #ccc}
+th{background-color:#4caf50;color:white;text-align:center}
+th,td{padding:8px;text-align:center}
+</style>
+<title>By Success</title>
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<div id="title">Four Direction Travels And Tours</div>
+<div class="expenses"><button onclick="window.location.href='expenses.html';" style="background-color:#00E3E1;color:#000;box-shadow:0 0 10px #000;transition:transform .3s;cursor:pointer;font-weight:bold;" onmouseover="this.style.transform='scale(1.05)';" onmouseout="this.style.transform='scale(1)';">In/Ex</button></div>
+<link rel="icon" href="favicon.ico" type="image/x-icon">
+<div id="searchArea">
+<label>Search:</label>
+<input type="text" id="searchInput">
+<div>
+<button id="Search" onclick="hideEntrySection()">Search</button>
+<button id="Show" onclick="showEntrySection()">Show</button>
+</div>
+</div>
+<div id="entrySection">
+<label>Date:</label><input type="date" id="date">
+<label>Rec NO:</label><input type="number" id="recNo">
+<label>Email:</label><input type="text" id="email">
+<label>Sender Name:</label><input type="text" id="senderName">
+<label>Sender Address:</label><input type="text" id="senderAddress">
+<label>Sender Contact Number:</label><input type="number" id="senderContact">
+<label>Weight KG:</label><input type="text" id="weightTicket">
+<label>Price:</label><input type="number" id="price">
+<label>Receiver Name:</label><input type="text" id="receiverName">
+<label>Receiver Address:</label><input type="text" id="receiverAddress">
+<label>Receiver Contact Number:</label><input type="number" id="receiverContact">
+<label>Update:</label><input type="text" id="update">
+<label>Tracking Number:</label><input type="text" id="trackingNumber">
+<label>Delivered Date:</label><input type="date" id="deliveredDate">
+<label>Item:</label>
+<div id="aboutCourierTicket">
+<textarea id="courierTicket" rows="5" cols="40"></textarea>
+</div>
+<div id="updateButton">
+<button id="Save" onclick="saveData()">Save</button>
+</div>
+</div>
+<div id="filterArea">
+<label>Filter:</label>
+<select id="filterSelect" onchange="applyFilter()">
+<option value="all">All</option>
+<option value="day">This Day</option>
+<option value="week">This Week</option>
+<option value="month">This Month</option>
+<option value="year">This Year</option>
+</select>
+</div>
+<div id="totalPrice"></div>
+<div id="resultsTitle">Results:</div>
+<div id="results"></div>
+  <script defer>
+    const firebaseConfig = {
+      apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
+      authDomain: "d-data-storage-399801.firebaseapp.com",
+      databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
+      projectId: "d-data-storage-399801",
+      storageBucket: "d-data-storage-399801.appspot.com",
+      messagingSenderId: "515303559494",
+      appId: "1:515303559494:web:f108f881e01ee3ddec9547",
+      measurementId: "G-BECRQ4T8BP"
+    };
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    let packets = [];
+    let displayedPacketsCount = 1000000000;
+    let searchTerm = '';
+    function saveData() {
+      const requiredInputs = ['recNo', 'senderName', 'senderContact', 'senderAddress', 'price'];
+      let requiredInputsFilled = true;
+      requiredInputs.forEach(inputId => {
+        const inputValue = document.getElementById(inputId).value.trim();
+        if (inputValue === '') {
+          requiredInputsFilled = false;
+        }
+      });
+      if (requiredInputsFilled) {
+        const enteredRecNo = document.getElementById('recNo').value.trim();
+        const recNoAlreadyExists = packets.some(packet => packet.recNo === enteredRecNo);
+        if (!recNoAlreadyExists) {
+          const packet = {
+            recNo: enteredRecNo,
+            senderName: document.getElementById('senderName').value,
+            senderAddress: document.getElementById('senderAddress').value,
+            senderContact: document.getElementById('senderContact').value,
+            price: document.getElementById('price').value,
+          };
+          packet.date = document.getElementById('date').value;
+          packet.email = document.getElementById('email').value;
+          packet.weightTicket = document.getElementById('weightTicket').value;
+          packet.receiverName = document.getElementById('receiverName').value;
+          packet.receiverAddress = document.getElementById('receiverAddress').value;
+          packet.receiverContact = document.getElementById('receiverContact').value;
+          packet.update = document.getElementById('update').value;
+          packet.trackingNumber = document.getElementById('trackingNumber').value;
+          packet.deliveredDate = document.getElementById('deliveredDate').value;
+          packet.courierTicket = document.getElementById('courierTicket').value;
+          const packetsRef = database.ref('packets');
+          packetsRef.push(packet);
+          clearInputs();
+          displayResults();
+          applyFilter();
+        } else {
+          alert('RecNo already exists. Please provide a different RecNo.');
+        }
+      } else {
+        alert('Please fill in all required input fields.');
+      }
+    }
+    function searchData() {
+      searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+      let searchValue = searchTerm;
+      let searchField = '';
+      if (searchTerm.startsWith('r-')) {
+        searchValue = searchTerm.substring(2);
+        searchField = 'recNo';
+      } else if (searchTerm.startsWith('t-')) {
+        searchValue = searchTerm.substring(2);
+        searchField = 'trackingNumber';
+      } else if (searchTerm.startsWith('d-')) {
+        searchValue = searchTerm.substring(2);
+        searchField = 'date';
+      } else if (searchTerm.startsWith('sn-')) {
+        searchValue = searchTerm.substring(3);
+        searchField = 'senderName';
+      } else if (searchTerm.startsWith('sc-')) {
+        searchValue = searchTerm.substring(3);
+        searchField = 'senderContact';
+      } else if (searchTerm.startsWith('sa-')) {
+        searchValue = searchTerm.substring(3);
+        searchField = 'senderAddress';
+      } else if (searchTerm.startsWith('rn-')) {
+        searchValue = searchTerm.substring(3);
+        searchField = 'receiverName';
+      } else if (searchTerm.startsWith('rc-')) {
+        searchValue = searchTerm.substring(3);
+        searchField = 'receiverContact';
+      } else if (searchTerm.startsWith('ra-')) {
+        searchValue = searchTerm.substring(3);
+        searchField = 'receiverAddress';
+      }
+      const searchResults = packets.filter(packet => {
+        if (searchField) {
+          const fieldValue = packet[searchField] ? packet[searchField].toString().toLowerCase() : '';
+          return fieldValue.includes(searchValue);
+        } else {
+          const fieldsToSearch = ['recNo', 'date', 'email', 'senderName', 'senderAddress', 'senderContact', 'receiverName', 'receiverAddress', 'receiverContact', 'update', 'trackingNumber'];
+          const allFieldValues = fieldsToSearch.map(field => packet[field] ? packet[field].toString().toLowerCase() : '').join(' ');
+          return allFieldValues.includes(searchValue);
+        }
+      });
+      displayResults(searchResults);
+    }
+    function displayResults(results = packets) {
+  results.sort((a, b) => {
+    return b.recNo - a.recNo;
+  });
+      const resultsContainer = document.getElementById('results');
+      resultsContainer.innerHTML = '';
+
+      results.slice(0, displayedPacketsCount).forEach(packet => {
+        const packetDiv = document.createElement('div');
+        packetDiv.classList.add('packet');
+        let trackingLink = '';
+    if (packet.trackingNumber.startsWith('SG')) {
+      trackingLink = `<a href="https://shipglobal.au/tracking?waybill=${packet.trackingNumber}&submit=Track" target="_blank">${packet.trackingNumber}</a>`;
+    } else if (packet.trackingNumber.startsWith('FFC')) {
+      trackingLink = `<a href="https://www.firstflightcanada.com/tracking?waybill=${packet.trackingNumber}&submit=Track" target="_blank">${packet.trackingNumber}</a>`;
+    } else {
+      trackingLink = `<a href="https://www.aftership.com/track/${packet.trackingNumber}" target="_blank">${packet.trackingNumber}</a>`;
+    }
+        packetDiv.innerHTML = `
+          <p>Rec NO: ${packet.recNo}</p>
+          <p>Date: ${packet.date}</p>
+          <p>Email: ${packet.email}</p>
+          <p>Sender Name: ${packet.senderName}</p>
+          <p>Sender Address: ${packet.senderAddress}</p>
+          <p>Sender Contact: ${packet.senderContact}</p>
+          <p>Weight KG: ${packet.weightTicket}</p>
+          <p>Price: ${packet.price}</p>
+          <p>Receiver Name: ${packet.receiverName}</p>
+          <p>Receiver Address: ${packet.receiverAddress}</p>
+          <p>Receiver Contact: ${packet.receiverContact}</p>
+          <p>Update: ${packet.update}</p>
+          <p>Tracking Number: ${trackingLink}</p>
+          <p>Delivered Date: ${packet.deliveredDate}</p>
+          <p>Item: ${packet.courierTicket}</p>
+          <button onclick="editPacket(${packets.indexOf(packet)})">Edit</button>
+          <button onclick="copyToClipboard(${packets.indexOf(packet)})">Copy</button>
+          <button onclick="copyForPrint(${packets.indexOf(packet)})">Print</button>
+          <br>
+          <button onclick="sendMail(${packets.indexOf(packet)})")">Mail</button>
+        `;
+        resultsContainer.appendChild(packetDiv);
+      });
+      const moreButton = document.getElementById('moreButton');
+      moreButton.style.display = displayedPacketsCount < results.length ? 'block' : 'none';
+    }
+    function copyToClipboard(index) {
+      const packet = packets[index];
+      const packetText = `
+Rec NO: ${packet.recNo}
+Date: ${packet.date}
+Email: ${packet.email}
+Sender Name: ${packet.senderName}
+Sender Address: ${packet.senderAddress}
+Sender Contact: ${packet.senderContact}
+Weight KG: ${packet.weightTicket}
+Price: ${packet.price}
+Receiver Name: ${packet.receiverName}
+Receiver Address: ${packet.receiverAddress}
+Receiver Contact: ${packet.receiverContact}
+Update: ${packet.update}
+Tracking Number: ${packet.trackingNumber}
+Delivered Date: ${packet.deliveredDate}
+Item: ${packet.courierTicket}
+      `;
+      const textarea = document.createElement('textarea');
+      textarea.value = packetText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    function copyForPrint(index) {
+      const packet = packets[index];
+      const packetText = `
+Four Direction 056-490449
+Tracking Number: ${packet.trackingNumber}
+${packet.update}
+Date: ${packet.date}
+Sender Name: ${packet.senderName}
+Sender Address: ${packet.senderAddress}
+Sender Contact: ${packet.senderContact}
+Weight KG: ${packet.weightTicket}
+Receiver Name: ${packet.receiverName}
+Receiver Address: ${packet.receiverAddress}
+Receiver Contact: ${packet.receiverContact}
+Item: ${packet.courierTicket}`;
+      const textarea = document.createElement('textarea');
+      textarea.value = packetText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    function sendMail(index) {
+  const packet = packets[index];
+  let trackingLink = '';
+  if (packet.trackingNumber.startsWith('SG')) {
+    trackingLink = `https://shipglobal.au/tracking?waybill=${encodeURIComponent(packet.trackingNumber)}&submit=Track`;
+  } else if (packet.trackingNumber.startsWith('FFC')) {
+    trackingLink = `https://www.firstflightcanada.com/tracking?waybill=${encodeURIComponent(packet.trackingNumber)}&submit=Track`;
+  } else {
+    trackingLink = `https://www.aftership.com/track/${encodeURIComponent(packet.trackingNumber)}`;
+  }
+  const mailBody = `Dear Customer,\n\nWe hope this email finds you well.\n\nWe are pleased to inform you that your recent shipment has been processed and assigned the following tracking number: ${packet.trackingNumber}. To track the status of your package, please click here ${trackingLink} \n\nIf you have any queries about your package please do not hesitate to contact us.\n\nThank you for choosing our service.\n\nBest regards,\nFour Direction Courier\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
+  const mailtoLink = `https://mail.google.com/mail/u/0/?fs=1&tf=cm&to=${encodeURIComponent(
+    packet.email
+)}&su=Your+Package+Status+by+Four+Direction&body=${encodeURIComponent(mailBody)}`;
+  window.open(mailtoLink, '_blank');
+}
+    function displayMore() {
+      displayedPacketsCount += 5;
+      displayResults();
+    }
+    function confirmDelete(index) {
+      const isConfirmed = confirm("Are you sure you want to delete this entry?");
+      if (isConfirmed) {
+        deletePacket(index);
+      }
+    }
+    function editPacket(index) {
+      const isConfirmed = confirm("Are you sure you want to edit this entry?");
+      if (isConfirmed) {
+        const packet = packets[index];
+        document.getElementById('date').value = packet.date;
+        document.getElementById('recNo').value = packet.recNo;
+        document.getElementById('email').value = packet.email;
+        document.getElementById('senderName').value = packet.senderName;
+        document.getElementById('senderAddress').value = packet.senderAddress;
+        document.getElementById('senderContact').value = packet.senderContact;
+        document.getElementById('weightTicket').value = packet.weightTicket;
+        document.getElementById('price').value = packet.price;
+        document.getElementById('receiverName').value = packet.receiverName;
+        document.getElementById('receiverAddress').value = packet.receiverAddress;
+        document.getElementById('receiverContact').value = packet.receiverContact;
+        document.getElementById('update').value = packet.update;
+        document.getElementById('trackingNumber').value = packet.trackingNumber;
+        document.getElementById('deliveredDate').value = packet.deliveredDate;
+        document.getElementById('courierTicket').value = packet.courierTicket;
+        entrySection.style.display = 'block';
+        deletePacket(index);
+      }
+    }
+    const entrySection = document.getElementById('entrySection');
+    function showEntrySection() {
+      entrySection.style.display = 'block';
+    }
+    function hideEntrySection() {
+      entrySection.style.display = 'none';
+      searchData();
+      calculateAndDisplayTotal();
+    }
+    function updateData(index) {
+      const packet = {
+        date: document.getElementById('date').value,
+        recNo: document.getElementById('recNo').value,
+        email: document.getElementById('email').value,
+        senderName: document.getElementById('senderName').value,
+        senderAddress: document.getElementById('senderAddress').value,
+        senderContact: document.getElementById('senderContact').value,
+        weightTicket: document.getElementById('weightTicket').value,
+        price: document.getElementById('price').value,
+        receiverName: document.getElementById('receiverName').value,
+        receiverAddress: document.getElementById('receiverAddress').value,
+        receiverContact: document.getElementById('receiverContact').value,
+        update: document.getElementById('update').value,
+        trackingNumber: document.getElementById('trackingNumber').value,
+        deliveredDate: document.getElementById('deliveredDate').value,
+        courierTicket: document.getElementById('courierTicket').value,
+      };
+      packets[index] = packet;
+      const packetsRef = database.ref('packets');
+      packetsRef.set(packets);
+      clearInputs();
+      displayResults();
+      applyFilter();
+    }
+    function deletePacket(index) {
+      packets.splice(index, 1);
+      const packetsRef = database.ref('packets');
+      packetsRef.set(packets);
+      displayResults();
+      applyFilter();
+    }
+    function applyFilter() {
+      const filterSelect = document.getElementById('filterSelect');
+      const selectedOption = filterSelect.value;
+
+      switch (selectedOption) {
+        case 'day':
+          applyDayFilter();
+          break;
+        case 'week':
+          applyWeekFilter();
+        case 'month':
+          applyMonthFilter();
+          break;
+        case 'year':
+          applyYearFilter();
+          break;
+        case 'all':
+          applyAllFilter();
+          break;
+        default:
+          break;
+      }
+    }
+    function applyDayFilter() {
+      const today = new Date().toISOString().split('T')[0];
+      const filteredResults = packets.filter(packet => packet.date === today);
+      displayResults(filteredResults);
+      calculateAndDisplayTotal(filteredResults);
+    }
+    function applyWeekFilter() {
+      const today = new Date();
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      const endOfWeek = new Date(today);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      const filteredResults = packets.filter(packet => {
+        const packetDate = new Date(packet.date);
+        return packetDate >= startOfWeek && packetDate <= endOfWeek;
+      });
+
+      displayResults(filteredResults);
+      calculateAndDisplayTotal(filteredResults);
+    }
+    function applyMonthFilter() {
+      const thisMonth = new Date().toISOString().split('-').slice(0, 2).join('-');
+      const filteredResults = packets.filter(packet => packet.date.startsWith(thisMonth));
+      displayResults(filteredResults);
+      calculateAndDisplayTotal(filteredResults);
+    }
+    function applyYearFilter() {
+      const thisYear = new Date().toISOString().split('-')[0];
+      const filteredResults = packets.filter(packet => packet.date.startsWith(thisYear));
+      displayResults(filteredResults);
+      calculateAndDisplayTotal(filteredResults);
+    }
+    function applyAllFilter() {
+      displayResults();
+      calculateAndDisplayTotal(packets);
+    }
+    function clearInputs() {
+      const inputs = document.querySelectorAll('input[type="text"], input[type="date"], input[type="number"], textarea');
+      inputs.forEach(input => (input.value = ''));
+    }
+    function calculateAndDisplayTotal(displayedPackets) {
+      const total = displayedPackets.reduce((acc, packet) => {
+        if (packet.price) {
+          const price = parseFloat(packet.price);
+          if (!isNaN(price)) {
+            acc += price;
+          }
+        }
+        return acc;
+      }, 0);
+      const totalPriceElement = document.getElementById('totalPrice');
+      totalPriceElement.textContent = `Total Price: RS.${total.toFixed(2)}`;
+    }
+    const packetsRef = database.ref('packets');
+    packetsRef.on('value', (snapshot) => {
+      packets = [];
+      snapshot.forEach((childSnapshot) => {
+        const packet = childSnapshot.val();
+        packets.push(packet);
+      });
+      displayResults();
+      applyFilter();
+      
+    });
+  </script>
+</body>
+</html>
