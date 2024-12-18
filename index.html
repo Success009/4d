@@ -1,86 +1,273 @@
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body{font-family:Arial,sans-serif;margin:20px;background-color:#47c8ff;display:flex;flex-direction:column;align-items:flex-start}
-#title{text-align:center;font-size:36px;font-weight:bold;margin-bottom:10px;width:100%;color:#FC2E2E;letter-spacing:1.6px;font-style:italic}
-label{display:block;margin-bottom:5px;font-weight:bold}
-input,button,select{margin-bottom:10px;padding:8px;border:1px solid #ccc;border-radius:4px;width:300px;box-sizing:border-box}
-button{background-color:#4caf50;color:white;cursor:pointer;width:calc(200px/2);transition:background-color .3s ease}
-button:hover{background-color:#45a049}
-#results{margin-top:20px}
-.packet{border:1px solid #ccc;padding:10px;margin-bottom:10px;background-color:white}
-.packet p{margin:0}
-.packet button{margin-top:5px;width:calc(300px/2)}
-#filterArea,#searchArea{margin-top:20px;width:100%}
-#totalPrice,#resultsTitle{font-weight:bold;margin-top:20px}
-#aboutCourierTicket{margin-top:10px;width:300px;white-space:pre-line}
-#updateButton,#moreButton{margin-top:10px}
-#Search,#Show,#Export,#Save{color:white;cursor:pointer;width:calc(200px/2);transition:background-color .3s ease}
-#Search{background-color:#e61414}
-#Show{background-color:#0b0be0}
-#Save{background-color:#ff8800}
-#Search:hover,#Show:hover,#Save:hover{transform:scale(1.1)}
-#entrySection{display:block}
-table{width:100%;border-collapse:collapse;margin-top:20px}
-table,th,td{border:1px solid #ccc}
-th{background-color:#4caf50;color:white;text-align:center}
-th,td{padding:8px;text-align:center}
-</style>
-<title>By Success</title>
-<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 20px; 
+      background-color: #47c8ff; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: flex-start; 
+      transition: background-color 0.3s ease;
+    }
+
+    #title { 
+      text-align: center; 
+      font-size: 36px; 
+      font-weight: bold; 
+      margin-bottom: 10px; 
+      width: 100%; 
+      color: #FC2E2E; 
+      letter-spacing: 1.6px; 
+      transition: all 0.3s ease;
+    }
+
+    #title:hover {
+      transform: scale(1.02);
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+
+    label { 
+      display: block; 
+      margin-bottom: 5px; 
+      font-weight: bold; 
+      transition: color 0.3s ease;
+    }
+
+    label:hover {
+      color: #4caf50;
+    }
+
+    input, button, select { 
+      margin-bottom: 10px; 
+      padding: 8px; 
+      border: 1px solid #ccc; 
+      border-radius: 4px; 
+      width: 300px; 
+      box-sizing: border-box; 
+      transition: all 0.3s ease;
+    }
+
+    input:focus, select:focus {
+      border-color: #4caf50;
+      box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+    }
+
+    button { 
+      background-color: #4caf50; 
+      color: white; 
+      cursor: pointer; 
+      width: calc(200px / 2); 
+      transition: all 0.3s ease; 
+    }
+
+    button:hover { 
+      background-color: #45a049; 
+      transform: scale(1.05);
+    }
+
+    #results { 
+      margin-top: 20px; 
+      width: 100%;
+    }
+
+    .packet { 
+      border: 1px solid #ccc; 
+      padding: 10px; 
+      margin-bottom: 10px; 
+      background-color: white; 
+      transition: all 0.3s ease;
+    }
+
+    .packet:hover {
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transform: translateY(-3px);
+    }
+
+    .packet p { 
+      margin: 0; 
+    }
+
+    .packet button { 
+      margin-top: 5px; 
+      width: calc(300px / 2); 
+      transition: all 0.3s ease; 
+    }
+
+    #filterArea { 
+      margin-top: 20px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: flex-start; 
+      width: 100%; 
+    }
+
+    #totalPrice { 
+      font-weight: bold; 
+      margin-top: 20px; 
+      transition: color 0.3s ease;
+    }
+
+    #totalPrice:hover {
+      color: #FC2E2E;
+    }
+
+    #Search { 
+      background-color: #e61414; 
+      color: white; 
+      cursor: pointer; 
+      width: calc(200px / 2); 
+      transition: all 0.3s ease; 
+    }
+
+    #Search:hover { 
+      background-color: #e61414; 
+      transform: scale(1.1); 
+    }
+
+    #Show { 
+      background-color: #0b0be0; 
+      color: white; 
+      cursor: pointer; 
+      width: calc(200px / 2); 
+      transition: all 0.3s ease; 
+    }
+
+    #Show:hover { 
+      background-color: #0b0be0; 
+      transform: scale(1.1); 
+    }
+
+    #Export { 
+      background-color: #8c0869; 
+      color: white; 
+      cursor: pointer; 
+      width: calc(200px / 2); 
+      transition: all 0.3s ease; 
+    }
+
+    #Export:hover { 
+      background-color: #8c0869; 
+      transform: scale(1.1); 
+    }
+
+    #Save { 
+      background-color: #ff8800; 
+      color: white; 
+      cursor: pointer; 
+      width: calc(200px / 2); 
+      transition: all 0.3s ease; 
+    }
+
+    #Save:hover { 
+      background-color: #ff8800; 
+      transform: scale(1.1); 
+    }
+
+    /* Subtle animations and hover effects */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .packet {
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    /* Maintain original layout and dimensions */
+  </style>
+  <title>By Success</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-<div id="title">Four Direction Travels And Tours</div>
-<div class="expenses"><button onclick="window.location.href='expenses.html';" style="background-color:#00E3E1;color:#000;box-shadow:0 0 10px #000;transition:transform .3s;cursor:pointer;font-weight:bold;" onmouseover="this.style.transform='scale(1.05)';" onmouseout="this.style.transform='scale(1)';">In/Ex</button></div>
-<link rel="icon" href="favicon.ico" type="image/x-icon">
-<div id="searchArea">
-<label>Search:</label>
-<input type="text" id="searchInput">
-<div>
-<button id="Search" onclick="hideEntrySection()">Search</button>
-<button id="Show" onclick="showEntrySection()">Show</button>
-</div>
-</div>
-<div id="entrySection">
-<label>Date:</label><input type="date" id="date">
-<label>Rec NO:</label><input type="number" id="recNo">
-<label>Email:</label><input type="text" id="email">
-<label>Sender Name:</label><input type="text" id="senderName">
-<label>Sender Address:</label><input type="text" id="senderAddress">
-<label>Sender Contact Number:</label><input type="number" id="senderContact">
-<label>Weight KG:</label><input type="text" id="weightTicket">
-<label>Price:</label><input type="number" id="price">
-<label>Receiver Name:</label><input type="text" id="receiverName">
-<label>Receiver Address:</label><input type="text" id="receiverAddress">
-<label>Receiver Contact Number:</label><input type="number" id="receiverContact">
-<label>Update:</label><input type="text" id="update">
-<label>Tracking Number:</label><input type="text" id="trackingNumber">
-<label>Delivered Date:</label><input type="date" id="deliveredDate">
-<label>Item:</label>
-<div id="aboutCourierTicket">
-<textarea id="courierTicket" rows="5" cols="40"></textarea>
-</div>
-<div id="updateButton">
-<button id="Save" onclick="saveData()">Save</button>
-</div>
-</div>
-<div id="filterArea">
-<label>Filter:</label>
-<select id="filterSelect" onchange="applyFilter()">
-<option value="all">All</option>
-<option value="day">This Day</option>
-<option value="week">This Week</option>
-<option value="month">This Month</option>
-<option value="year">This Year</option>
-</select>
-</div>
-<div id="totalPrice"></div>
-<div id="resultsTitle">Results:</div>
-<div id="results"></div>
+  <div id="title"
+    style="text-align: center; font-size: 36px; margin-bottom: 10px; width: 100%; color: #FC2E2E; letter-spacing: 1.6px;  font-style: italic;">
+    Four Direction Travels And Tours
+  </div>
+  <div class="expenses" style="align: center;">
+    <button onclick="window.location.href = 'expenses.html';"
+      style="background-color: #00E3E1; color: #000000; box-shadow: 0 0 10px #000000; transition: transform 0.3s; cursor: pointer; font-weight: bold;"
+      onmouseover="this.style.transform='scale(1.05)';" onmouseout="this.style.transform='scale(1)';">In/Ex</button>
+  </div>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <div id="searchArea" style="width: 100%; ">
+    <label>Search:</label>
+    <input type="text" id="searchInput">
+    <div>
+      <button id="Search" onclick="searchData(); hideEntrySection(); calculateAndDisplayTotal();">Search</button>
+      <button id="Show" onclick="showEntrySection()">Show</button>
+      <button id="Export" onclick="exportToExcel()">Export</button>
+    </div>
+  </div>
+  <button id="BulkEntry" onclick="toggleBulkEntry()">Quick Entry</button>
+  <div id="bulkEntrySection" style="display: none;">
+    <label for="bulkData">Enter data:</label>
+    <textarea id="bulkData" rows="10" cols="50"></textarea><br>
+    <button id="Save" onclick="processQuickData()">Add Data</button>
+  </div>
+  <div id="entrySection">
+    <div>
+      <label>Date:</label>
+      <input type="date" id="date">
+      <label>Rec NO:</label>
+      <input type="number" id="recNo">
+      <label>Email:</label>
+      <input type="text" id="email">
+      <label>Sender Name:</label>
+      <input type="text" id="senderName">
+      <label>Sender Address:</label>
+      <input type="text" id="senderAddress">
+      <label>Sender Contact Number:</label>
+      <input type="number" id="senderContact">
+      <label>Weight KG:</label>
+      <input type="text" id="weightTicket">
+      <label>Price:</label>
+      <input type="number" id="price">
+      <label>Receiver Name:</label>
+      <input type="text" id="receiverName">
+      <label>Receiver Address:</label>
+      <input type="text" id="receiverAddress">
+      <label>Receiver Contact Number:</label>
+      <input type="number" id="receiverContact">
+      <label>Update:</label>
+      <input type="text" id="update">
+      <label>Tracking Number:</label>
+      <input type="text" id="trackingNumber">
+      <label>Delivered Date:</label>
+      <input type="date" id="deliveredDate">
+      <label>Item:</label>
+      <div id="aboutCourierTicket">
+        <textarea id="courierTicket" rows="5" cols="40"></textarea>
+      </div>
+      <div id="updateButton">
+        <button id="Save" onclick="saveData()">Save</button>
+      </div>
+    </div>
+  </div>
+  <div id="filterArea">
+    <label>Filter:</label>
+    <select id="filterSelect" onchange="applyFilter()">
+      <option value="all">All</option>
+      <option value="day">This Day</option>
+      <option value="week">This Week</option>
+      <option value="month">This Month</option>
+      <option value="year">This Year</option>
+    </select>
+  </div>
+  <div id="totalPrice">
+    <!-- Total price will be displayed here based on the selected filter -->
+  </div>
+  <div id="resultsTitle">
+    Results:
+  </div>
+  <div id="results">
+    <!-- Display search results here -->
+  </div>
+  <button id="moreButton" style="display: none;" onclick="displayMore()">More</button>
   <script defer>
     const firebaseConfig = {
       apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
@@ -138,6 +325,51 @@ th,td{padding:8px;text-align:center}
       } else {
         alert('Please fill in all required input fields.');
       }
+    }
+    function toggleBulkEntry() {
+      const bulkEntrySection = document.getElementById('bulkEntrySection');
+      if (bulkEntrySection.style.display === 'block') {
+        bulkEntrySection.style.display = 'none';
+        const entrySection = document.getElementById('entrySection');
+        entrySection.style.display = 'block';
+      } else {
+        bulkEntrySection.style.display = 'block';
+        const entrySection = document.getElementById('entrySection');
+        entrySection.style.display = 'none';
+      }
+    }
+    function processQuickData() {
+      const bulkData = document.getElementById('bulkData').value.trim();
+      const dataEntries = bulkData.split('\n');
+      dataEntries.forEach(entry => {
+        const dataFields = entry.split('\t');
+        if (dataFields.length === 14) {
+          const packet = {
+            date: dataFields[0] || '',
+            recNo: dataFields[1] || '',
+            senderName: dataFields[2] || '',
+            senderAddress: dataFields[3] || '',
+            senderContact: dataFields[4] || '',
+            weightTicket: dataFields[5] || '',
+            price: dataFields[6] || '',
+            receiverName: dataFields[7] || '',
+            receiverAddress: dataFields[8] || '',
+            receiverContact: dataFields[9] || '',
+            update: dataFields[10] || '',
+            trackingNumber: dataFields[11] || '',
+            deliveredDate: dataFields[12] || '',
+            courierTicket: dataFields[13] || '',
+          };
+          packets.push(packet);
+        } else if (dataFields.length === 15) {
+          packets.push({});
+        }
+        const packetsRef = database.ref('packets');
+        packetsRef.set(packets);
+        clearInputs();
+        displayResults();
+        applyFilter();
+      });
     }
     function searchData() {
       searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -302,6 +534,43 @@ Item: ${packet.courierTicket}`;
         deletePacket(index);
       }
     }
+    function exportToExcel() {
+      const packetsData = packets;
+      const workbook = XLSX.utils.book_new();
+      const dataAsArray = packetsData.map(packet => [
+        packet.date,
+        packet.recNo,
+        packet.email,
+        packet.senderName,
+        packet.senderAddress,
+        packet.senderContact,
+        packet.weightTicket,
+        packet.price,
+        packet.receiverName,
+        packet.receiverAddress,
+        packet.receiverContact,
+        packet.update,
+        packet.trackingNumber,
+        packet.deliveredDate,
+        packet.courierTicket,
+      ]);
+      const worksheet = XLSX.utils.aoa_to_sheet([["Date", "Rec NO", "Email", "Sender Name", "Sender Address", "Sender Contact", "Weight KG", "Price", "Receiver Name", "Receiver Address", "Receiver Contact", "Update", "Tracking Number", "Delivered Date", "Item"], ...dataAsArray]);
+      worksheet['!important'] = [{s: {alignment: {horizontal: 'center', vertical: 'center'}}}];
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Packets");
+      const blob = new Blob([s2ab(XLSX.write(workbook, {bookType: "xlsx", type: "binary"}))], {type: "application/octet-stream"});
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "packets.xlsx";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+    function s2ab(s) {
+      const buf = new ArrayBuffer(s.length);
+      const view = new Uint8Array(buf);
+      for (let i = 0; i != s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
+      return buf;
+    }
     function editPacket(index) {
       const isConfirmed = confirm("Are you sure you want to edit this entry?");
       if (isConfirmed) {
@@ -321,18 +590,17 @@ Item: ${packet.courierTicket}`;
         document.getElementById('trackingNumber').value = packet.trackingNumber;
         document.getElementById('deliveredDate').value = packet.deliveredDate;
         document.getElementById('courierTicket').value = packet.courierTicket;
-        entrySection.style.display = 'block';
         deletePacket(index);
+        showEntrySection();
       }
     }
-    const entrySection = document.getElementById('entrySection');
     function showEntrySection() {
+      const entrySection = document.getElementById('entrySection');
       entrySection.style.display = 'block';
     }
     function hideEntrySection() {
+      const entrySection = document.getElementById('entrySection');
       entrySection.style.display = 'none';
-      searchData();
-      calculateAndDisplayTotal();
     }
     function updateData(index) {
       const packet = {
@@ -439,6 +707,7 @@ Item: ${packet.courierTicket}`;
         }
         return acc;
       }, 0);
+
       const totalPriceElement = document.getElementById('totalPrice');
       totalPriceElement.textContent = `Total Price: RS.${total.toFixed(2)}`;
     }
@@ -451,7 +720,6 @@ Item: ${packet.courierTicket}`;
       });
       displayResults();
       applyFilter();
-      
     });
   </script>
 </body>
