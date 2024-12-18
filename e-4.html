@@ -173,6 +173,10 @@ tr:hover {
         flex-direction: column;
     }
 }
+#viewToggle {
+    margin-bottom: 20px;
+    text-align: center;
+}
     </style>
     <title>By Success</title>
 </head>
@@ -209,6 +213,13 @@ tr:hover {
                 <option value="year">This Year</option>
             </select>
         </div>
+        <div id="viewToggle">
+    <label for="viewSelect">View:</label>
+    <select id="viewSelect" onchange="toggleView()">
+        <option value="income">Income</option>
+        <option value="expenses" selected>Expenses</option>
+    </select>
+</div>
        <p>Total Balance: RS <span id="totalProfit">0.00</span></p>
     </div>
 
@@ -285,6 +296,23 @@ tr:hover {
           hideExpensesInput();
         }
       }
+      function toggleView() {
+    const view = document.getElementById('viewSelect').value;
+    const incomeSection = document.getElementById('income');
+    const expensesSection = document.getElementById('expenses');
+    
+    if (view === 'income') {
+        incomeSection.style.display = 'block';
+        expensesSection.style.display = 'none';
+    } else {
+        incomeSection.style.display = 'none';
+        expensesSection.style.display = 'block';
+    }
+}
+
+// Set initial visibility
+document.getElementById('income').style.display = 'none';
+
       function search() {
           const keyword = document.getElementById('searchExpense').value.toLowerCase();
           let totalExpenses = 0;
