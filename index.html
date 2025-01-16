@@ -3,211 +3,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      margin: 20px; 
-      background-color: #47c8ff; 
-      display: flex; 
-      flex-direction: column; 
-      align-items: flex-start; 
-      transition: background-color 0.3s ease;
-    }
-
-    #title { 
-      text-align: center; 
-      font-size: 36px; 
-      font-weight: bold; 
-      margin-bottom: 10px; 
-      width: 100%; 
-      color: #FC2E2E; 
-      letter-spacing: 1.6px; 
-      transition: all 0.3s ease;
-    }
-
-    #title:hover {
-      transform: scale(1.02);
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-    }
-
-    label { 
-      display: block; 
-      margin-bottom: 5px; 
-      font-weight: bold; 
-      transition: color 0.3s ease;
-    }
-
-    label:hover {
-      color: #4caf50;
-    }
-
-    input, button, select { 
-      margin-bottom: 10px; 
-      padding: 8px; 
-      border: 1px solid #ccc; 
-      border-radius: 4px; 
-      width: 300px; 
-      box-sizing: border-box; 
-      transition: all 0.3s ease;
-    }
-
-    input:focus, select:focus {
-      border-color: #4caf50;
-      box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
-    }
-
-    button { 
-      background-color: #4caf50; 
-      color: white; 
-      cursor: pointer; 
-      width: calc(200px / 2); 
-      transition: all 0.3s ease; 
-    }
-
-    button:hover { 
-      background-color: #45a049; 
-      transform: scale(1.05);
-    }
-
-    #results { 
-      margin-top: 20px; 
-      width: 100%;
-    }
-
-    .packet { 
-      border: 1px solid #ccc; 
-      padding: 10px; 
-      margin-bottom: 10px; 
-      background-color: white; 
-      transition: all 0.3s ease;
-    }
-
-    .packet:hover {
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      transform: translateY(-3px);
-    }
-
-    .packet p { 
-      margin: 0; 
-    }
-
-    .packet button { 
-      margin-top: 5px; 
-      width: calc(300px / 2); 
-      transition: all 0.3s ease; 
-    }
-
-    #filterArea { 
-      margin-top: 20px; 
-      display: flex; 
-      flex-direction: column; 
-      align-items: flex-start; 
-      width: 100%; 
-    }
-
-    #totalPrice { 
-      font-weight: bold; 
-      margin-top: 20px; 
-      transition: color 0.3s ease;
-    }
-
-    #totalPrice:hover {
-      color: #FC2E2E;
-    }
-
-    #Search { 
-      background-color: #e61414; 
-      color: white; 
-      cursor: pointer; 
-      width: calc(200px / 2); 
-      transition: all 0.3s ease; 
-    }
-
-    #Search:hover { 
-      background-color: #e61414; 
-      transform: scale(1.1); 
-    }
-
-    #Show { 
-      background-color: #0b0be0; 
-      color: white; 
-      cursor: pointer; 
-      width: calc(200px / 2); 
-      transition: all 0.3s ease; 
-    }
-
-    #Show:hover { 
-      background-color: #0b0be0; 
-      transform: scale(1.1); 
-    }
-
-    #Export { 
-      background-color: #8c0869; 
-      color: white; 
-      cursor: pointer; 
-      width: calc(200px / 2); 
-      transition: all 0.3s ease; 
-    }
-
-    #Export:hover { 
-      background-color: #8c0869; 
-      transform: scale(1.1); 
-    }
-
-    #Save { 
-      background-color: #ff8800; 
-      color: white; 
-      cursor: pointer; 
-      width: calc(200px / 2); 
-      transition: all 0.3s ease; 
-    }
-
-    #Save:hover { 
-      background-color: #ff8800; 
-      transform: scale(1.1); 
-    }
-
-    /* Subtle animations and hover effects */
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    .packet {
-      animation: fadeIn 0.5s ease-out;
-    }
-
-    /* Maintain original layout and dimensions */
+    body {font-family: Arial, sans-serif; margin: 20px; background-color: #47c8ff;}
+    #title {text-align: center; font-size: 36px; font-weight: bold; color: #FC2E2E; width: 100%;}
+    label {display: block; margin-bottom: 5px; font-weight: bold;}
+    input, button, select {margin-bottom: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 300px;}
+    button {background-color: #4caf50; color: white; cursor: pointer; width: 100px;}
+    #results {margin-top: 20px; width: 100%;}
+    .packet {border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; background-color: white;}
+    .packet p { margin: 0; }
+    .packet button { margin-top: 5px; }
+    #Search { background-color: #e61414; }
+    #Show { background-color: #0b0be0; }
+    #Export { background-color: #8c0869; }
+    #Save { background-color: #ff8800; }
   </style>
-  <title>By Success</title>
+  <title>Courier Management</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-  <div id="title"
-    style="text-align: center; font-size: 36px; margin-bottom: 10px; width: 100%; color: #FC2E2E; letter-spacing: 1.6px;  font-style: italic;">
-    Four Direction Travels And Tours
+  <div id="title">Four Direction Travels And Tours</div>
+  <div class="expenses">
+    <button onclick="window.location.href='expenses.html';" style="background-color: #00E3E1; color: #000000;">In/Ex</button>
   </div>
-  <div class="expenses" style="align: center;">
-    <button onclick="window.location.href = 'expenses.html';"
-      style="background-color: #00E3E1; color: #000000; box-shadow: 0 0 10px #000000; transition: transform 0.3s; cursor: pointer; font-weight: bold;"
-      onmouseover="this.style.transform='scale(1.05)';" onmouseout="this.style.transform='scale(1)';">In/Ex</button>
-  </div>
-  <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <div id="searchArea" style="width: 100%; ">
+  <div id="searchArea">
     <label>Search:</label>
     <input type="text" id="searchInput">
     <div>
       <button id="Search" onclick="searchData(); hideEntrySection(); calculateAndDisplayTotal();">Search</button>
       <button id="Show" onclick="showEntrySection()">Show</button>
-      <button id="Export" onclick="exportToExcel()">Export</button>
     </div>
-  </div>
-  <button id="BulkEntry" onclick="toggleBulkEntry()">Quick Entry</button>
-  <div id="bulkEntrySection" style="display: none;">
-    <label for="bulkData">Enter data:</label>
-    <textarea id="bulkData" rows="10" cols="50"></textarea><br>
-    <button id="Save" onclick="processQuickData()">Add Data</button>
   </div>
   <div id="entrySection">
     <div>
@@ -258,17 +83,10 @@
       <option value="year">This Year</option>
     </select>
   </div>
-  <div id="totalPrice">
-    <!-- Total price will be displayed here based on the selected filter -->
-  </div>
-  <div id="resultsTitle">
-    Results:
-  </div>
-  <div id="results">
-    <!-- Display search results here -->
-  </div>
-  <button id="moreButton" style="display: none;" onclick="displayMore()">More</button>
-  <script defer>
+  <div id="totalPrice"></div>
+  <div id="resultsTitle">Results:</div>
+  <div id="results"></div>
+  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
       authDomain: "d-data-storage-399801.firebaseapp.com",
@@ -282,157 +100,82 @@
     const app = firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     let packets = [];
-    let displayedPacketsCount = 1000000000;
     let searchTerm = '';
     function saveData() {
       const requiredInputs = ['recNo', 'senderName', 'senderContact', 'senderAddress', 'price'];
       let requiredInputsFilled = true;
       requiredInputs.forEach(inputId => {
-        const inputValue = document.getElementById(inputId).value.trim();
-        if (inputValue === '') {
-          requiredInputsFilled = false;
-        }
+        if (!document.getElementById(inputId).value.trim()) requiredInputsFilled = false;
       });
-      if (requiredInputsFilled) {
-        const enteredRecNo = document.getElementById('recNo').value.trim();
-        const recNoAlreadyExists = packets.some(packet => packet.recNo === enteredRecNo);
-        if (!recNoAlreadyExists) {
-          const packet = {
-            recNo: enteredRecNo,
-            senderName: document.getElementById('senderName').value,
-            senderAddress: document.getElementById('senderAddress').value,
-            senderContact: document.getElementById('senderContact').value,
-            price: document.getElementById('price').value,
-          };
-          packet.date = document.getElementById('date').value;
-          packet.email = document.getElementById('email').value;
-          packet.weightTicket = document.getElementById('weightTicket').value;
-          packet.receiverName = document.getElementById('receiverName').value;
-          packet.receiverAddress = document.getElementById('receiverAddress').value;
-          packet.receiverContact = document.getElementById('receiverContact').value;
-          packet.update = document.getElementById('update').value;
-          packet.trackingNumber = document.getElementById('trackingNumber').value;
-          packet.deliveredDate = document.getElementById('deliveredDate').value;
-          packet.courierTicket = document.getElementById('courierTicket').value;
-          const packetsRef = database.ref('packets');
-          packetsRef.push(packet);
-          clearInputs();
-          displayResults();
-          applyFilter();
-        } else {
-          alert('RecNo already exists. Please provide a different RecNo.');
-        }
-      } else {
+      if (!requiredInputsFilled) {
         alert('Please fill in all required input fields.');
+        return;
       }
-    }
-    function toggleBulkEntry() {
-      const bulkEntrySection = document.getElementById('bulkEntrySection');
-      if (bulkEntrySection.style.display === 'block') {
-        bulkEntrySection.style.display = 'none';
-        const entrySection = document.getElementById('entrySection');
-        entrySection.style.display = 'block';
-      } else {
-        bulkEntrySection.style.display = 'block';
-        const entrySection = document.getElementById('entrySection');
-        entrySection.style.display = 'none';
+      const enteredRecNo = document.getElementById('recNo').value.trim();
+      if (packets.some(packet => packet.recNo === enteredRecNo)) {
+        alert('RecNo already exists. Please provide a different RecNo.');
+        return;
       }
-    }
-    function processQuickData() {
-      const bulkData = document.getElementById('bulkData').value.trim();
-      const dataEntries = bulkData.split('\n');
-      dataEntries.forEach(entry => {
-        const dataFields = entry.split('\t');
-        if (dataFields.length === 14) {
-          const packet = {
-            date: dataFields[0] || '',
-            recNo: dataFields[1] || '',
-            senderName: dataFields[2] || '',
-            senderAddress: dataFields[3] || '',
-            senderContact: dataFields[4] || '',
-            weightTicket: dataFields[5] || '',
-            price: dataFields[6] || '',
-            receiverName: dataFields[7] || '',
-            receiverAddress: dataFields[8] || '',
-            receiverContact: dataFields[9] || '',
-            update: dataFields[10] || '',
-            trackingNumber: dataFields[11] || '',
-            deliveredDate: dataFields[12] || '',
-            courierTicket: dataFields[13] || '',
-          };
-          packets.push(packet);
-        } else if (dataFields.length === 15) {
-          packets.push({});
-        }
-        const packetsRef = database.ref('packets');
-        packetsRef.set(packets);
-        clearInputs();
-        displayResults();
-        applyFilter();
-      });
+      const packet = {
+        recNo: enteredRecNo,
+        date: document.getElementById('date').value,
+        email: document.getElementById('email').value,
+        senderName: document.getElementById('senderName').value,
+        senderAddress: document.getElementById('senderAddress').value,
+        senderContact: document.getElementById('senderContact').value,
+        weightTicket: document.getElementById('weightTicket').value,
+        price: document.getElementById('price').value,
+        receiverName: document.getElementById('receiverName').value,
+        receiverAddress: document.getElementById('receiverAddress').value,
+        receiverContact: document.getElementById('receiverContact').value,
+        update: document.getElementById('update').value,
+        trackingNumber: document.getElementById('trackingNumber').value,
+        deliveredDate: document.getElementById('deliveredDate').value,
+        courierTicket: document.getElementById('courierTicket').value
+      };
+      database.ref('packets').push(packet);
+      clearInputs();
+      displayResults();
+      applyFilter();
     }
     function searchData() {
       searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
       let searchValue = searchTerm;
       let searchField = '';
-      if (searchTerm.startsWith('r-')) {
-        searchValue = searchTerm.substring(2);
-        searchField = 'recNo';
-      } else if (searchTerm.startsWith('t-')) {
-        searchValue = searchTerm.substring(2);
-        searchField = 'trackingNumber';
-      } else if (searchTerm.startsWith('d-')) {
-        searchValue = searchTerm.substring(2);
-        searchField = 'date';
-      } else if (searchTerm.startsWith('sn-')) {
-        searchValue = searchTerm.substring(3);
-        searchField = 'senderName';
-      } else if (searchTerm.startsWith('sc-')) {
-        searchValue = searchTerm.substring(3);
-        searchField = 'senderContact';
-      } else if (searchTerm.startsWith('sa-')) {
-        searchValue = searchTerm.substring(3);
-        searchField = 'senderAddress';
-      } else if (searchTerm.startsWith('rn-')) {
-        searchValue = searchTerm.substring(3);
-        searchField = 'receiverName';
-      } else if (searchTerm.startsWith('rc-')) {
-        searchValue = searchTerm.substring(3);
-        searchField = 'receiverContact';
-      } else if (searchTerm.startsWith('ra-')) {
-        searchValue = searchTerm.substring(3);
-        searchField = 'receiverAddress';
+      const prefixes = {
+        'r-': 'recNo', 't-': 'trackingNumber', 'd-': 'date',
+        'sn-': 'senderName', 'sc-': 'senderContact', 'sa-': 'senderAddress',
+        'rn-': 'receiverName', 'rc-': 'receiverContact', 'ra-': 'receiverAddress'
+      };
+      for (const [prefix, field] of Object.entries(prefixes)) {
+        if (searchTerm.startsWith(prefix)) {
+          searchValue = searchTerm.substring(prefix.length);
+          searchField = field;
+          break;
+        }
       }
       const searchResults = packets.filter(packet => {
         if (searchField) {
-          const fieldValue = packet[searchField] ? packet[searchField].toString().toLowerCase() : '';
-          return fieldValue.includes(searchValue);
-        } else {
-          const fieldsToSearch = ['recNo', 'date', 'email', 'senderName', 'senderAddress', 'senderContact', 'receiverName', 'receiverAddress', 'receiverContact', 'update', 'trackingNumber'];
-          const allFieldValues = fieldsToSearch.map(field => packet[field] ? packet[field].toString().toLowerCase() : '').join(' ');
-          return allFieldValues.includes(searchValue);
+          return (packet[searchField] || '').toString().toLowerCase().includes(searchValue);
         }
+        return Object.values(packet).some(val => 
+          val && val.toString().toLowerCase().includes(searchValue)
+        );
       });
       displayResults(searchResults);
     }
     function displayResults(results = packets) {
-  results.sort((a, b) => {
-    return b.recNo - a.recNo;
-  });
+      results.sort((a, b) => b.recNo - a.recNo);
       const resultsContainer = document.getElementById('results');
       resultsContainer.innerHTML = '';
-
-      results.slice(0, displayedPacketsCount).forEach(packet => {
+      results.forEach((packet, index) => {
         const packetDiv = document.createElement('div');
-        packetDiv.classList.add('packet');
-        let trackingLink = '';
-    if (packet.trackingNumber.startsWith('SG')) {
-      trackingLink = `<a href="https://shipglobal.au/tracking?waybill=${packet.trackingNumber}&submit=Track" target="_blank">${packet.trackingNumber}</a>`;
-    } else if (packet.trackingNumber.startsWith('FFC')) {
-      trackingLink = `<a href="https://www.firstflightcanada.com/tracking?waybill=${packet.trackingNumber}&submit=Track" target="_blank">${packet.trackingNumber}</a>`;
-    } else {
-      trackingLink = `<a href="https://www.aftership.com/track/${packet.trackingNumber}" target="_blank">${packet.trackingNumber}</a>`;
-    }
+        packetDiv.className = 'packet';
+        let trackingLink = packet.trackingNumber.startsWith('SG') 
+          ? `https://shipglobal.au/tracking?waybill=${packet.trackingNumber}&submit=Track`
+          : packet.trackingNumber.startsWith('FFC')
+          ? `https://www.firstflightcanada.com/tracking?waybill=${packet.trackingNumber}&submit=Track`
+          : `https://www.aftership.com/track/${packet.trackingNumber}`;
         packetDiv.innerHTML = `
           <p>Rec NO: ${packet.recNo}</p>
           <p>Date: ${packet.date}</p>
@@ -446,7 +189,7 @@
           <p>Receiver Address: ${packet.receiverAddress}</p>
           <p>Receiver Contact: ${packet.receiverContact}</p>
           <p>Update: ${packet.update}</p>
-          <p>Tracking Number: ${trackingLink}</p>
+          <p>Tracking Number: <a href="${trackingLink}" target="_blank">${packet.trackingNumber}</a></p>
           <p>Delivered Date: ${packet.deliveredDate}</p>
           <p>Item: ${packet.courierTicket}</p>
           <button onclick="editPacket(${packets.indexOf(packet)})">Edit</button>
@@ -454,38 +197,77 @@
           <button onclick="copyForPrint(${packets.indexOf(packet)})">Print</button>
           <br>
           <button onclick="sendMail(${packets.indexOf(packet)})")">Mail</button>
+          <button onclick="downloadBill(${packets.indexOf(packet)})">Bill</button>
         `;
         resultsContainer.appendChild(packetDiv);
       });
-      const moreButton = document.getElementById('moreButton');
-      moreButton.style.display = displayedPacketsCount < results.length ? 'block' : 'none';
+    }
+    function downloadBill(index) {
+      const packet = packets[index];
+      const canvas = document.createElement('canvas');
+      canvas.width = 700;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000000';
+      ctx.font = '30px Arial';
+      ctx.fillText('FOUR DIRECTION TRAVELS AND TOURS', 50, 50);
+      ctx.font = '20px Arial';
+      ctx.fillText('Contact: 056-490449 / 9855020449', 50, 90);
+      ctx.beginPath();
+      ctx.moveTo(20, 110);
+      ctx.lineTo(580, 110);
+      ctx.stroke();
+      ctx.font = '18px Arial';
+      ctx.fillText(`Receipt No: ${packet.recNo}`, 20, 140);
+      ctx.fillText(`Date: ${packet.date}`, 20, 170);
+      ctx.fillText(`Sender Name: ${packet.senderName}`, 20, 210);
+      ctx.fillText(`From: ${packet.senderAddress}`, 20, 240);
+      ctx.fillText(`Sender Contact: ${packet.senderContact}`, 20, 270);
+      ctx.fillText(`To: ${packet.receiverAddress}`, 20, 340);
+      ctx.fillText(`Detail: ${packet.courierTicket}`, 20, 410);
+      ctx.fillText(`Weight (KG): ${packet.weightTicket}`, 20, 440);
+      ctx.fillText(`Amount: Rs. ${packet.price}`, 20, 470);
+      ctx.beginPath();
+      ctx.moveTo(20, 500);
+      ctx.lineTo(580, 500);
+      ctx.stroke();
+      ctx.fillText('Thank you for choosing Four Direction Travels And Couriers', 50, 540);
+      canvas.toBlob((blob) => {
+        const link = document.createElement('a');
+        link.download = `bill_${packet.recNo}.png`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        URL.revokeObjectURL(link.href);
+      });
     }
     function copyToClipboard(index) {
-      const packet = packets[index];
-      const packetText = `
-Rec NO: ${packet.recNo}
-Date: ${packet.date}
-Email: ${packet.email}
-Sender Name: ${packet.senderName}
-Sender Address: ${packet.senderAddress}
-Sender Contact: ${packet.senderContact}
-Weight KG: ${packet.weightTicket}
-Price: ${packet.price}
-Receiver Name: ${packet.receiverName}
-Receiver Address: ${packet.receiverAddress}
-Receiver Contact: ${packet.receiverContact}
-Update: ${packet.update}
-Tracking Number: ${packet.trackingNumber}
-Delivered Date: ${packet.deliveredDate}
-Item: ${packet.courierTicket}
-      `;
-      const textarea = document.createElement('textarea');
-      textarea.value = packetText;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-    }
+          const packet = packets[index];
+          const packetText = `
+    Rec NO: ${packet.recNo}
+    Date: ${packet.date}
+    Email: ${packet.email}
+    Sender Name: ${packet.senderName}
+    Sender Address: ${packet.senderAddress}
+    Sender Contact: ${packet.senderContact}
+    Weight KG: ${packet.weightTicket}
+    Price: ${packet.price}
+    Receiver Name: ${packet.receiverName}
+    Receiver Address: ${packet.receiverAddress}
+    Receiver Contact: ${packet.receiverContact}
+    Update: ${packet.update}
+    Tracking Number: ${packet.trackingNumber}
+    Delivered Date: ${packet.deliveredDate}
+    Item: ${packet.courierTicket}
+          `;
+          const textarea = document.createElement('textarea');
+          textarea.value = packetText;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
     function copyForPrint(index) {
       const packet = packets[index];
       const packetText = `
@@ -501,143 +283,43 @@ Receiver Name: ${packet.receiverName}
 Receiver Address: ${packet.receiverAddress}
 Receiver Contact: ${packet.receiverContact}
 Item: ${packet.courierTicket}`;
-      const textarea = document.createElement('textarea');
-      textarea.value = packetText;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
+      navigator.clipboard.writeText(packetText);
     }
     function sendMail(index) {
-  const packet = packets[index];
-  let trackingLink = '';
-  if (packet.trackingNumber.startsWith('SG')) {
-    trackingLink = `https://shipglobal.au/tracking?waybill=${encodeURIComponent(packet.trackingNumber)}&submit=Track`;
-  } else if (packet.trackingNumber.startsWith('FFC')) {
-    trackingLink = `https://www.firstflightcanada.com/tracking?waybill=${encodeURIComponent(packet.trackingNumber)}&submit=Track`;
-  } else {
-    trackingLink = `https://www.aftership.com/track/${encodeURIComponent(packet.trackingNumber)}`;
-  }
-  const mailBody = `Dear Customer,\n\nWe hope this email finds you well.\n\nWe are pleased to inform you that your recent shipment has been processed and assigned the following tracking number: ${packet.trackingNumber}. To track the status of your package, please click here ${trackingLink} \n\nIf you have any queries about your package please do not hesitate to contact us.\n\nThank you for choosing our service.\n\nBest regards,\nFour Direction Courier\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
-  const mailtoLink = `https://mail.google.com/mail/u/0/?fs=1&tf=cm&to=${encodeURIComponent(
-    packet.email
-)}&su=Your+Package+Status+by+Four+Direction&body=${encodeURIComponent(mailBody)}`;
-  window.open(mailtoLink, '_blank');
-}
-    function displayMore() {
-      displayedPacketsCount += 5;
-      displayResults();
-    }
-    function confirmDelete(index) {
-      const isConfirmed = confirm("Are you sure you want to delete this entry?");
-      if (isConfirmed) {
-        deletePacket(index);
-      }
-    }
-    function exportToExcel() {
-      const packetsData = packets;
-      const workbook = XLSX.utils.book_new();
-      const dataAsArray = packetsData.map(packet => [
-        packet.date,
-        packet.recNo,
-        packet.email,
-        packet.senderName,
-        packet.senderAddress,
-        packet.senderContact,
-        packet.weightTicket,
-        packet.price,
-        packet.receiverName,
-        packet.receiverAddress,
-        packet.receiverContact,
-        packet.update,
-        packet.trackingNumber,
-        packet.deliveredDate,
-        packet.courierTicket,
-      ]);
-      const worksheet = XLSX.utils.aoa_to_sheet([["Date", "Rec NO", "Email", "Sender Name", "Sender Address", "Sender Contact", "Weight KG", "Price", "Receiver Name", "Receiver Address", "Receiver Contact", "Update", "Tracking Number", "Delivered Date", "Item"], ...dataAsArray]);
-      worksheet['!important'] = [{s: {alignment: {horizontal: 'center', vertical: 'center'}}}];
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Packets");
-      const blob = new Blob([s2ab(XLSX.write(workbook, {bookType: "xlsx", type: "binary"}))], {type: "application/octet-stream"});
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "packets.xlsx";
-      a.click();
-      window.URL.revokeObjectURL(url);
-    }
-    function s2ab(s) {
-      const buf = new ArrayBuffer(s.length);
-      const view = new Uint8Array(buf);
-      for (let i = 0; i != s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
-      return buf;
+      const packet = packets[index];
+      const trackingLink = packet.trackingNumber.startsWith('SG')
+        ? `https://shipglobal.au/tracking?waybill=${encodeURIComponent(packet.trackingNumber)}&submit=Track`
+        : packet.trackingNumber.startsWith('FFC')
+        ? `https://www.firstflightcanada.com/tracking?waybill=${encodeURIComponent(packet.trackingNumber)}&submit=Track`
+        : `https://www.aftership.com/track/${encodeURIComponent(packet.trackingNumber)}`;
+      const mailBody = `Dear Customer,\n\nWe hope this email finds you well.\n\nWe are pleased to inform you that your recent shipment has been processed and assigned the following tracking number: ${packet.trackingNumber}. To track the status of your package, please click here ${trackingLink} \n\nIf you have any queries about your package please do not hesitate to contact us.\n\nThank you for choosing our service.\n\nBest regards,\nFour Direction Courier\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
+      window.open(`https://mail.google.com/mail/u/0/?fs=1&tf=cm&to=${encodeURIComponent(packet.email)}&su=Your+Package+Status+by+Four+Direction&body=${encodeURIComponent(mailBody)}`, '_blank');
     }
     function editPacket(index) {
-      const isConfirmed = confirm("Are you sure you want to edit this entry?");
-      if (isConfirmed) {
-        const packet = packets[index];
-        document.getElementById('date').value = packet.date;
-        document.getElementById('recNo').value = packet.recNo;
-        document.getElementById('email').value = packet.email;
-        document.getElementById('senderName').value = packet.senderName;
-        document.getElementById('senderAddress').value = packet.senderAddress;
-        document.getElementById('senderContact').value = packet.senderContact;
-        document.getElementById('weightTicket').value = packet.weightTicket;
-        document.getElementById('price').value = packet.price;
-        document.getElementById('receiverName').value = packet.receiverName;
-        document.getElementById('receiverAddress').value = packet.receiverAddress;
-        document.getElementById('receiverContact').value = packet.receiverContact;
-        document.getElementById('update').value = packet.update;
-        document.getElementById('trackingNumber').value = packet.trackingNumber;
-        document.getElementById('deliveredDate').value = packet.deliveredDate;
-        document.getElementById('courierTicket').value = packet.courierTicket;
-        deletePacket(index);
-        showEntrySection();
-      }
+      if (!confirm("Are you sure you want to edit this entry?")) return;
+      const packet = packets[index];
+      Object.entries(packet).forEach(([key, value]) => {
+        const element = document.getElementById(key);
+        if (element) element.value = value;
+      });
+      deletePacket(index);
+      showEntrySection();
     }
     function showEntrySection() {
-      const entrySection = document.getElementById('entrySection');
-      entrySection.style.display = 'block';
+      document.getElementById('entrySection').style.display = 'block';
     }
     function hideEntrySection() {
-      const entrySection = document.getElementById('entrySection');
-      entrySection.style.display = 'none';
-    }
-    function updateData(index) {
-      const packet = {
-        date: document.getElementById('date').value,
-        recNo: document.getElementById('recNo').value,
-        email: document.getElementById('email').value,
-        senderName: document.getElementById('senderName').value,
-        senderAddress: document.getElementById('senderAddress').value,
-        senderContact: document.getElementById('senderContact').value,
-        weightTicket: document.getElementById('weightTicket').value,
-        price: document.getElementById('price').value,
-        receiverName: document.getElementById('receiverName').value,
-        receiverAddress: document.getElementById('receiverAddress').value,
-        receiverContact: document.getElementById('receiverContact').value,
-        update: document.getElementById('update').value,
-        trackingNumber: document.getElementById('trackingNumber').value,
-        deliveredDate: document.getElementById('deliveredDate').value,
-        courierTicket: document.getElementById('courierTicket').value,
-      };
-      packets[index] = packet;
-      const packetsRef = database.ref('packets');
-      packetsRef.set(packets);
-      clearInputs();
-      displayResults();
-      applyFilter();
+      document.getElementById('entrySection').style.display = 'none';
     }
     function deletePacket(index) {
       packets.splice(index, 1);
-      const packetsRef = database.ref('packets');
-      packetsRef.set(packets);
+      database.ref('packets').set(packets);
       displayResults();
       applyFilter();
     }
     function applyFilter() {
       const filterSelect = document.getElementById('filterSelect');
       const selectedOption = filterSelect.value;
-
       switch (selectedOption) {
         case 'day':
           applyDayFilter();
@@ -673,7 +355,6 @@ Item: ${packet.courierTicket}`;
         const packetDate = new Date(packet.date);
         return packetDate >= startOfWeek && packetDate <= endOfWeek;
       });
-
       displayResults(filteredResults);
       calculateAndDisplayTotal(filteredResults);
     }
@@ -707,7 +388,6 @@ Item: ${packet.courierTicket}`;
         }
         return acc;
       }, 0);
-
       const totalPriceElement = document.getElementById('totalPrice');
       totalPriceElement.textContent = `Total Price: RS.${total.toFixed(2)}`;
     }
