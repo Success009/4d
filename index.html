@@ -17,7 +17,7 @@
     #Export { background-color: #8c0869; }
     #Save { background-color: #ff8800; }
   </style>
-  <title>Courier Management</title>
+  <title>By Success</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
 </head>
@@ -208,13 +208,19 @@
       canvas.width = 700;
       canvas.height = 380;
       const ctx = canvas.getContext('2d');
+      const logo = new Image();
+      logo.src = '4d.png';
+      logo.onload = () => {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const logoWidth = 80;
+      const logoHeight = 80;
+      ctx.drawImage(logo, 15, 15, logoWidth, logoHeight);
       ctx.fillStyle = '#000000';
       ctx.font = '25px Arial';
       ctx.fillText('FOUR DIRECTION TRAVELS AND TOURS', 105, 50);
       ctx.font = '20px Arial';
-      ctx.fillText('Bharatpur-10, Chitwan', 40, 90);
+      ctx.fillText('Bharatpur-10, Chitwan', 105, 90);
       ctx.fillText('056-490449 / 9855020449', 425, 90);
       ctx.beginPath();
       ctx.moveTo(20, 110);
@@ -242,7 +248,8 @@
         link.href = URL.createObjectURL(blob);
         link.click();
         URL.revokeObjectURL(link.href);
-      });
+        });
+      };
     }
     function copyToClipboard(index) {
       const packet = packets[index];
