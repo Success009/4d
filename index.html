@@ -158,7 +158,7 @@
         if (searchField) {
           return (packet[searchField] || '').toString().toLowerCase().includes(searchValue);
         }
-        return Object.values(packet).some(val => 
+        return Object.values(packet).some(val =>
           val && val.toString().toLowerCase().includes(searchValue)
         );
       });
@@ -171,11 +171,11 @@
       results.forEach((packet, index) => {
         const packetDiv = document.createElement('div');
         packetDiv.className = 'packet';
-        let trackingLink = packet.trackingNumber.startsWith('SG') 
+        let trackingLink = packet.trackingNumber.startsWith('SG')
           ? `https://shipglobal.au/tracking?waybill=${packet.trackingNumber}&submit=Track`
           : packet.trackingNumber.startsWith('FFC')
-          ? `https://www.firstflightcanada.com/tracking?waybill=${packet.trackingNumber}&submit=Track`
-          : `https://www.aftership.com/track/${packet.trackingNumber}`;
+            ? `https://www.firstflightcanada.com/tracking?waybill=${packet.trackingNumber}&submit=Track`
+            : `https://www.aftership.com/track/${packet.trackingNumber}`;
         packetDiv.innerHTML = `
           <p>Rec NO: ${packet.recNo}</p>
           <p>Date: ${packet.date}</p>
@@ -206,34 +206,36 @@
       const packet = packets[index];
       const canvas = document.createElement('canvas');
       canvas.width = 700;
-      canvas.height = 600;
+      canvas.height = 350;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#000000';
-      ctx.font = '30px Arial';
-      ctx.fillText('FOUR DIRECTION TRAVELS AND TOURS', 50, 50);
+      ctx.font = '25px Arial';
+      ctx.fillText('FOUR DIRECTION TRAVELS AND TOURS', 105, 50);
       ctx.font = '20px Arial';
-      ctx.fillText('Contact: 056-490449 / 9855020449', 50, 90);
+      ctx.fillText('Bharatpur-10, Chitwan', 40, 90);
+      ctx.fillText('056-490449 / 9855020449', 425, 90);
       ctx.beginPath();
       ctx.moveTo(20, 110);
-      ctx.lineTo(580, 110);
+      ctx.lineTo(680, 110);
       ctx.stroke();
       ctx.font = '18px Arial';
       ctx.fillText(`Receipt No: ${packet.recNo}`, 20, 140);
-      ctx.fillText(`Date: ${packet.date}`, 20, 170);
-      ctx.fillText(`Sender Name: ${packet.senderName}`, 20, 210);
-      ctx.fillText(`From: ${packet.senderAddress}`, 20, 240);
-      ctx.fillText(`Sender Contact: ${packet.senderContact}`, 20, 270);
-      ctx.fillText(`To: ${packet.receiverAddress}`, 20, 340);
-      ctx.fillText(`Detail: ${packet.courierTicket}`, 20, 410);
-      ctx.fillText(`Weight (KG): ${packet.weightTicket}`, 20, 440);
-      ctx.fillText(`Amount: Rs. ${packet.price}`, 20, 470);
+      ctx.fillText(`Date: ${packet.date}`, 530, 140);
+      ctx.fillText(`Name: ${packet.senderName}`, 20, 170);
+      ctx.fillText(`Contact: ${packet.senderContact}`, 500, 170);
+      ctx.fillText(`From: ${packet.senderAddress}`, 20, 200);
+      ctx.fillText(`To: ${packet.receiverAddress}`, 20, 230);
+      ctx.fillText(`Weight (KG): ${packet.weightTicket}`, 20, 260);
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText(`Amount: Rs. ${packet.price}`, 20, 295);
       ctx.beginPath();
-      ctx.moveTo(20, 500);
-      ctx.lineTo(580, 500);
+      ctx.moveTo(20, 320);
+      ctx.lineTo(680, 320);
       ctx.stroke();
-      ctx.fillText('Thank you for choosing Four Direction Travels And Couriers', 50, 540);
+      ctx.font = '18px Arial';
+      ctx.fillText('Thank you for choosing Four Direction Travels And Couriers', 100, 360);
       canvas.toBlob((blob) => {
         const link = document.createElement('a');
         link.download = `bill_${packet.recNo}.png`;
@@ -243,8 +245,8 @@
       });
     }
     function copyToClipboard(index) {
-          const packet = packets[index];
-          const packetText = `
+      const packet = packets[index];
+      const packetText = `
     Rec NO: ${packet.recNo}
     Date: ${packet.date}
     Email: ${packet.email}
@@ -261,13 +263,13 @@
     Delivered Date: ${packet.deliveredDate}
     Item: ${packet.courierTicket}
           `;
-          const textarea = document.createElement('textarea');
-          textarea.value = packetText;
-          document.body.appendChild(textarea);
-          textarea.select();
-          document.execCommand('copy');
-          document.body.removeChild(textarea);
-        }
+      const textarea = document.createElement('textarea');
+      textarea.value = packetText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
     function copyForPrint(index) {
       const packet = packets[index];
       const packetText = `
@@ -290,8 +292,8 @@ Item: ${packet.courierTicket}`;
       const trackingLink = packet.trackingNumber.startsWith('SG')
         ? `https://shipglobal.au/tracking?waybill=${encodeURIComponent(packet.trackingNumber)}&submit=Track`
         : packet.trackingNumber.startsWith('FFC')
-        ? `https://www.firstflightcanada.com/tracking?waybill=${encodeURIComponent(packet.trackingNumber)}&submit=Track`
-        : `https://www.aftership.com/track/${encodeURIComponent(packet.trackingNumber)}`;
+          ? `https://www.firstflightcanada.com/tracking?waybill=${encodeURIComponent(packet.trackingNumber)}&submit=Track`
+          : `https://www.aftership.com/track/${encodeURIComponent(packet.trackingNumber)}`;
       const mailBody = `Dear Customer,\n\nWe hope this email finds you well.\n\nWe are pleased to inform you that your recent shipment has been processed and assigned the following tracking number: ${packet.trackingNumber}. To track the status of your package, please click here ${trackingLink} \n\nIf you have any queries about your package please do not hesitate to contact us.\n\nThank you for choosing our service.\n\nBest regards,\nFour Direction Courier\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
       window.open(`https://mail.google.com/mail/u/0/?fs=1&tf=cm&to=${encodeURIComponent(packet.email)}&su=Your+Package+Status+by+Four+Direction&body=${encodeURIComponent(mailBody)}`, '_blank');
     }
