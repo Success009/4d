@@ -265,14 +265,15 @@ tr:hover {
     </div>
     <script>
         const firebaseConfig = {
-            apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
-            authDomain: "d-data-storage-399801.firebaseapp.com",
-            projectId: "d-data-storage-399801",
-            storageBucket: "d-data-storage-399801.appspot.com",
-            messagingSenderId: "515303559494",
-            appId: "1:515303559494:web:46cece8a07ce607aec9547",
-            measurementId: "G-XZHYK7WP4R"
-        };
+  apiKey: "AIzaSyD-K2DkVKhkza2KEo3sa3AGKXt6MJCBV6c",
+  authDomain: "d-data-storage-399801.firebaseapp.com",
+  databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
+  projectId: "d-data-storage-399801",
+  storageBucket: "d-data-storage-399801.firebasestorage.app",
+  messagingSenderId: "515303559494",
+  appId: "1:515303559494:web:45a267241b37980cec9547",
+  measurementId: "G-W8CJ6F0GL6"
+};
         const app = firebase.initializeApp(firebaseConfig);
         const database = app.database();
       function displayIncome(packets) {
