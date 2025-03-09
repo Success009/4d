@@ -88,15 +88,15 @@
   <div id="results"></div>
   <script>
     const firebaseConfig = {
-  apiKey: "AIzaSyD-K2DkVKhkza2KEo3sa3AGKXt6MJCBV6c",
-  authDomain: "d-data-storage-399801.firebaseapp.com",
-  databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
-  projectId: "d-data-storage-399801",
-  storageBucket: "d-data-storage-399801.firebasestorage.app",
-  messagingSenderId: "515303559494",
-  appId: "1:515303559494:web:45a267241b37980cec9547",
-  measurementId: "G-W8CJ6F0GL6"
-};
+      apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
+      authDomain: "d-data-storage-399801.firebaseapp.com",
+      databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
+      projectId: "d-data-storage-399801",
+      storageBucket: "d-data-storage-399801.appspot.com",
+      messagingSenderId: "515303559494",
+      appId: "1:515303559494:web:f108f881e01ee3ddec9547",
+      measurementId: "G-BECRQ4T8BP"
+    };
     const app = firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     let packets = [];
@@ -111,11 +111,15 @@
         alert('Please fill in all required input fields.');
         return;
       }
+      
       const enteredRecNo = document.getElementById('recNo').value.trim();
-      if (packets.some(packet => packet.recNo === enteredRecNo)) {
+      const isEditing = window.currentEditingRecNo && window.currentEditingRecNo === enteredRecNo;
+      
+      if (!isEditing && packets.some(packet => packet.recNo === enteredRecNo)) {
         alert('RecNo already exists. Please provide a different RecNo.');
         return;
       }
+      
       const packet = {
         recNo: enteredRecNo,
         date: document.getElementById('date').value,
@@ -133,7 +137,25 @@
         deliveredDate: document.getElementById('deliveredDate').value,
         courierTicket: document.getElementById('courierTicket').value
       };
-      database.ref('packets').push(packet);
+      
+      if (isEditing) {
+        // Update existing record
+        database.ref('packets').once('value', (snapshot) => {
+          snapshot.forEach((childSnapshot) => {
+            const existingPacket = childSnapshot.val();
+            if (existingPacket.recNo === enteredRecNo) {
+              childSnapshot.ref.update(packet);
+            }
+          });
+        });
+      } else {
+        // Add new record
+        database.ref('packets').push(packet);
+      }
+      
+      // Reset editing state
+      window.currentEditingRecNo = null;
+      
       clearInputs();
       displayResults();
       applyFilter();
@@ -193,6 +215,7 @@
           <p>Delivered Date: ${packet.deliveredDate}</p>
           <p>Item: ${packet.courierTicket}</p>
           <button onclick="editPacket(${packets.indexOf(packet)})">Edit</button>
+          <button onclick="deletePacket(${packets.indexOf(packet)})" style="background-color: #e74c3c;">Delete</button>
           <button onclick="copyToClipboard(${packets.indexOf(packet)})">Copy</button>
           <button onclick="copyForPrint(${packets.indexOf(packet)})">Print</button>
           <br>
@@ -309,12 +332,15 @@ Item: ${packet.courierTicket}`;
     function editPacket(index) {
       if (!confirm("Are you sure you want to edit this entry?")) return;
       const packet = packets[index];
+      // Store the current recNo for later reference when saving
+      window.currentEditingRecNo = packet.recNo;
       Object.entries(packet).forEach(([key, value]) => {
         const element = document.getElementById(key);
         if (element) element.value = value;
       });
-      deletePacket(index);
       showEntrySection();
+      // Scroll to the top of the page
+      window.scrollTo(0, 0);
     }
     function showEntrySection() {
       document.getElementById('entrySection').style.display = 'block';
@@ -323,10 +349,26 @@ Item: ${packet.courierTicket}`;
       document.getElementById('entrySection').style.display = 'none';
     }
     function deletePacket(index) {
+      if (!confirm("Are you sure you want to delete this entry?")) return;
+      
+      // Find the packet's key in Firebase to delete it directly
+      const packetToDelete = packets[index];
+      database.ref('packets').once('value', (snapshot) => {
+        snapshot.forEach((childSnapshot) => {
+          const packet = childSnapshot.val();
+          if (packet.recNo === packetToDelete.recNo) {
+            childSnapshot.ref.remove();
+          }
+        });
+      });
+      
+      // Update local array (for immediate UI update)
       packets.splice(index, 1);
-      database.ref('packets').set(packets);
       displayResults();
       applyFilter();
+      
+      // Scroll to the top of the page
+      window.scrollTo(0, 0);
     }
     function applyFilter() {
       const filterSelect = document.getElementById('filterSelect');
