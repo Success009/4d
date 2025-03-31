@@ -7,6 +7,9 @@
     #title {text-align: center; font-size: 36px; font-weight: bold; color: #FC2E2E; width: 100%;}
     label {display: block; margin-bottom: 5px; font-weight: bold;}
     input, button, select {margin-bottom: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 300px;}
+    .tracking-group { display: flex; align-items: center; gap: 5px; margin-bottom: 10px; }
+    .tracking-input { margin-bottom: 0 !important; }
+    .tracking-group button { width: 30px !important; padding: 8px 0; }
     button {background-color: #4caf50; color: white; cursor: pointer; width: 100px;}
     #results {margin-top: 20px; width: 100%;}
     .packet {border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; background-color: white;}
@@ -61,7 +64,12 @@
       <label>Update:</label>
       <input type="text" id="update">
       <label>Tracking Number:</label>
-      <input type="text" id="trackingNumber">
+      <div id="trackingInputs">
+        <div class="tracking-group">
+          <input type="text" id="trackingNumber" class="tracking-input">
+          <button type="button" onclick="addTrackingInput()" style="width: 30px; background-color: #4caf50;">+</button>
+        </div>
+      </div>
       <label>Delivered Date:</label>
       <input type="date" id="deliveredDate">
       <label>Item:</label>
@@ -133,7 +141,7 @@
         receiverAddress: document.getElementById('receiverAddress').value,
         receiverContact: document.getElementById('receiverContact').value,
         update: document.getElementById('update').value,
-        trackingNumber: document.getElementById('trackingNumber').value,
+        trackingNumber: getTrackingNumbers().join(','),
         deliveredDate: document.getElementById('deliveredDate').value,
         courierTicket: document.getElementById('courierTicket').value
       };
@@ -193,11 +201,15 @@
       results.forEach((packet, index) => {
         const packetDiv = document.createElement('div');
         packetDiv.className = 'packet';
-        let trackingLink = packet.trackingNumber.startsWith('SG')
-          ? `https://shipglobal.au/tracking?waybill=${packet.trackingNumber}&submit=Track`
-          : packet.trackingNumber.startsWith('FFC')
-            ? `https://www.firstflightcanada.com/tracking?waybill=${packet.trackingNumber}&submit=Track`
-            : `https://www.aftership.com/track/${packet.trackingNumber}`;
+        const trackingNumbers = packet.trackingNumber.split(',').filter(tn => tn.trim());
+        const trackingLinks = trackingNumbers.map(tn => {
+          const tn_trim = tn.trim();
+          return tn_trim.startsWith('SG')
+            ? `<a href="https://shipglobal.au/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${tn_trim}</a>`
+            : tn_trim.startsWith('FFC')
+              ? `<a href="https://www.firstflightcanada.com/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${tn_trim}</a>`
+              : `<a href="https://www.aftership.com/track/${tn_trim}" target="_blank">${tn_trim}</a>`;
+        }).join(', ');
         packetDiv.innerHTML = `
           <p>Rec NO: ${packet.recNo}</p>
           <p>Date: ${packet.date}</p>
@@ -211,7 +223,7 @@
           <p>Receiver Address: ${packet.receiverAddress}</p>
           <p>Receiver Contact: ${packet.receiverContact}</p>
           <p>Update: ${packet.update}</p>
-          <p>Tracking Number: <a href="${trackingLink}" target="_blank">${packet.trackingNumber}</a></p>
+          <p>Tracking Number(s): ${trackingLinks}</p>
           <p>Delivered Date: ${packet.deliveredDate}</p>
           <p>Item: ${packet.courierTicket}</p>
           <button onclick="editPacket(${packets.indexOf(packet)})">Edit</button>
@@ -319,14 +331,41 @@ Receiver Contact: ${packet.receiverContact}
 Item: ${packet.courierTicket}`;
       navigator.clipboard.writeText(packetText);
     }
+    function addTrackingInput() {
+      const container = document.getElementById('trackingInputs');
+      const div = document.createElement('div');
+      div.className = 'tracking-group';
+      div.innerHTML = `
+        <input type="text" class="tracking-input">
+        <button type="button" onclick="removeTrackingInput(this)" style="width: 30px; background-color: #e74c3c;">-</button>
+      `;
+      container.appendChild(div);
+    }
+
+    function removeTrackingInput(button) {
+      button.parentElement.remove();
+    }
+
+    function getTrackingNumbers() {
+      const inputs = document.querySelectorAll('.tracking-input');
+      return Array.from(inputs).map(input => input.value).filter(val => val);
+    }
+
     function sendMail(index) {
       const packet = packets[index];
-      const trackingLink = packet.trackingNumber.startsWith('SG')
-        ? `https://shipglobal.au/tracking?waybill=${encodeURIComponent(packet.trackingNumber)}&submit=Track`
-        : packet.trackingNumber.startsWith('FFC')
-          ? `https://www.firstflightcanada.com/tracking?waybill=${encodeURIComponent(packet.trackingNumber)}&submit=Track`
-          : `https://www.aftership.com/track/${encodeURIComponent(packet.trackingNumber)}`;
-      const mailBody = `Dear Customer,\n\nWe hope this email finds you well.\n\nWe are pleased to inform you that your recent shipment has been processed and assigned the following tracking number: ${packet.trackingNumber}. To track the status of your package, please click here ${trackingLink} \n\nIf you have any queries about your package please do not hesitate to contact us.\n\nThank you for choosing our service.\n\nBest regards,\nFour Direction Courier\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
+      const trackingNumbers = packet.trackingNumber.split(',').filter(t => t.trim());
+      
+      const trackingInfo = trackingNumbers.map(tn => {
+        const tn_trim = tn.trim();
+        const link = tn_trim.startsWith('SG')
+          ? `https://shipglobal.au/tracking?waybill=${encodeURIComponent(tn_trim)}&submit=Track`
+          : tn_trim.startsWith('FFC')
+            ? `https://www.firstflightcanada.com/tracking?waybill=${encodeURIComponent(tn_trim)}&submit=Track`
+            : `https://www.aftership.com/track/${encodeURIComponent(tn_trim)}`;
+        return `\nTracking Number: ${tn_trim}\nTracking Link: ${link}`;
+      }).join('\n');
+
+      const mailBody = `Dear Customer,\n\nWe hope this email finds you well.\n\nWe are pleased to inform you that your recent shipment has been processed and assigned the following tracking information:${trackingInfo}\n\nIf you have any queries about your package please do not hesitate to contact us.\n\nThank you for choosing our service.\n\nBest regards,\nFour Direction Courier\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
       window.open(`https://mail.google.com/mail/u/0/?fs=1&tf=cm&to=${encodeURIComponent(packet.email)}&su=Your+Package+Status+by+Four+Direction&body=${encodeURIComponent(mailBody)}`, '_blank');
     }
     function editPacket(index) {
