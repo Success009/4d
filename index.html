@@ -63,6 +63,8 @@
       <input type="number" id="receiverContact">
       <label>Update:</label>
       <input type="text" id="update">
+      <label>Bill Item</label>
+      <input type="text" id="billItem">
       <label>Tracking Number:</label>
       <div id="trackingInputs">
         <div class="tracking-group">
@@ -141,6 +143,7 @@
         receiverAddress: document.getElementById('receiverAddress').value,
         receiverContact: document.getElementById('receiverContact').value,
         update: document.getElementById('update').value,
+        billItem: document.getElementById('billItem').value,
         trackingNumber: getTrackingNumbers().join(','),
         deliveredDate: document.getElementById('deliveredDate').value,
         courierTicket: document.getElementById('courierTicket').value
@@ -223,6 +226,7 @@
           <p>Receiver Address: ${packet.receiverAddress}</p>
           <p>Receiver Contact: ${packet.receiverContact}</p>
           <p>Update: ${packet.update}</p>
+          <p>Bill Item: ${packet.billItem}</p>
           <p>Tracking Number(s): ${trackingLinks}</p>
           <p>Delivered Date: ${packet.deliveredDate}</p>
           <p>Item: ${packet.courierTicket}</p>
@@ -258,7 +262,7 @@
         ctx.fillText(`${packet.senderName}`, 570, 490);
         ctx.fillText(`${packet.senderAddress}`, 320, 585);
         ctx.fillText(`${packet.receiverAddress}`, 1158, 586);
-        ctx.fillText(`${packet.update}`, 900, 771)
+        ctx.fillText(`${packet.billItem}`, 150, 865)
         // Amount in numbers and words
         ctx.font = 'bold 58px Arial';
         ctx.fillText(`${packet.price}`, 230, 995);
@@ -281,12 +285,18 @@
                    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 
                    'Seventeen', 'Eighteen', 'Nineteen'];
       const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+      // Make sure we're working with a number
       num = parseFloat(num);
       if (isNaN(num)) return '';
+
+      // For decimal places
       const parts = num.toString().split('.');
       let wholePart = parseInt(parts[0]);
       const decimalPart = parts.length > 1 ? parseInt(parts[1]) : 0;
+
       if (num === 0) return 'Zero';
+
       function convertLessThanOneThousand(n) {
         if (n === 0) return '';
         if (n < 20) {
@@ -297,23 +307,35 @@
         }
         return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' and ' + convertLessThanOneThousand(n % 100) : '');
       }
+
       let result = '';
+
+      // Handle billions
       if (wholePart >= 1000000000) {
         result += convertLessThanOneThousand(Math.floor(wholePart / 1000000000)) + ' Billion ';
         wholePart %= 1000000000;
       }
+
+      // Handle millions
       if (wholePart >= 1000000) {
         result += convertLessThanOneThousand(Math.floor(wholePart / 1000000)) + ' Million ';
         wholePart %= 1000000;
       }
+
+      // Handle thousands
       if (wholePart >= 1000) {
         result += convertLessThanOneThousand(Math.floor(wholePart / 1000)) + ' Thousand ';
         wholePart %= 1000;
       }
+
+      // Handle hundreds, tens and ones
       if (wholePart > 0) {
         result += convertLessThanOneThousand(wholePart);
       }
+
+      // Handle decimal part
       if (decimalPart > 0) {
+        // Make sure result is not empty before adding 'and'
         if (result !== '') {
           result += ' and ';
         }
@@ -337,6 +359,7 @@
     Receiver Address: ${packet.receiverAddress}
     Receiver Contact: ${packet.receiverContact}
     Update: ${packet.update}
+    Bill Item: ${packet.billItem}
     Tracking Number: ${packet.trackingNumber}
     Delivered Date: ${packet.deliveredDate}
     Item: ${packet.courierTicket}
