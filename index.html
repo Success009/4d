@@ -265,7 +265,7 @@
         ctx.fillText(`${packet.billItem}`, 150, 865)
         // Amount in numbers and words
         ctx.font = 'bold 58px Arial';
-        ctx.fillText(`${packet.price}`, 230, 995);
+        ctx.fillText(`${packet.price}.00`, 230, 995);
 
         // Convert price to words
         const amountInWords = numberToWords(packet.price);
