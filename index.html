@@ -15,10 +15,10 @@
     .packet {border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; background-color: white;}
     .packet p { margin: 0; }
     .packet button { margin-top: 5px; }
-    #Search { background-color: #e61414; }
-    #Show { background-color: #0b0be0; }
-    #Export { background-color: #8c0869; }
+    #Clear { background-color: #e61414; }
     #Save { background-color: #ff8800; }
+    .highlight { background-color: yellow; font-weight: bold; }
+    .no-results { padding: 15px; text-align: center; font-style: italic; background-color: #f8f8f8; }
   </style>
   <title>By Success</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
@@ -33,8 +33,7 @@
     <label>Search:</label>
     <input type="text" id="searchInput">
     <div>
-      <button id="Search" onclick="searchData(); hideEntrySection();">Search</button>
-      <button id="Show" onclick="showEntrySection()">Show</button>
+      <button id="Clear" onclick="clearSearch(); showEntrySection()">Clear Search</button>
     </div>
   </div>
   <div id="entrySection">
@@ -63,8 +62,6 @@
       <input type="number" id="receiverContact">
       <label>Update:</label>
       <input type="text" id="update">
-      <label>Bill Item</label>
-      <input type="text" id="billItem">
       <label>Tracking Number:</label>
       <div id="trackingInputs">
         <div class="tracking-group">
@@ -121,7 +118,6 @@
         alert('Please fill in all required input fields.');
         return;
       }
-      
       const enteredRecNo = document.getElementById('recNo').value.trim();
       const isEditing = window.currentEditingRecNo && window.currentEditingRecNo === enteredRecNo;
       
@@ -129,7 +125,6 @@
         alert('RecNo already exists. Please provide a different RecNo.');
         return;
       }
-      
       const packet = {
         recNo: enteredRecNo,
         date: document.getElementById('date').value,
@@ -143,14 +138,11 @@
         receiverAddress: document.getElementById('receiverAddress').value,
         receiverContact: document.getElementById('receiverContact').value,
         update: document.getElementById('update').value,
-        billItem: document.getElementById('billItem').value,
         trackingNumber: getTrackingNumbers().join(','),
         deliveredDate: document.getElementById('deliveredDate').value,
         courierTicket: document.getElementById('courierTicket').value
       };
-      
       if (isEditing) {
-        // Update existing record
         database.ref('packets').once('value', (snapshot) => {
           snapshot.forEach((childSnapshot) => {
             const existingPacket = childSnapshot.val();
@@ -160,42 +152,47 @@
           });
         });
       } else {
-        // Add new record
         database.ref('packets').push(packet);
       }
-      
-      // Reset editing state
       window.currentEditingRecNo = null;
-      
       clearInputs();
       displayResults();
       applyFilter();
     }
     function searchData() {
       searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
-      let searchValue = searchTerm;
-      let searchField = '';
-      const prefixes = {
-        'r-': 'recNo', 't-': 'trackingNumber', 'd-': 'date',
-        'sn-': 'senderName', 'sc-': 'senderContact', 'sa-': 'senderAddress',
-        'rn-': 'receiverName', 'rc-': 'receiverContact', 'ra-': 'receiverAddress'
-      };
-      for (const [prefix, field] of Object.entries(prefixes)) {
-        if (searchTerm.startsWith(prefix)) {
-          searchValue = searchTerm.substring(prefix.length);
-          searchField = field;
-          break;
-        }
+      if (!searchTerm) {
+        displayResults(packets);
+        return;
       }
-      const searchResults = packets.filter(packet => {
-        if (searchField) {
-          return (packet[searchField] || '').toString().toLowerCase().includes(searchValue);
-        }
-        return Object.values(packet).some(val =>
-          val && val.toString().toLowerCase().includes(searchValue)
-        );
+      const searchResults = packets.filter(packet => 
+        Object.values(packet).some(val => 
+          val && val.toString().toLowerCase().includes(searchTerm)
+        )
+      );
+      searchResults.sort((a, b) => {
+        const aRecNoMatch = (a.recNo || '').toString().toLowerCase().includes(searchTerm);
+        const bRecNoMatch = (b.recNo || '').toString().toLowerCase().includes(searchTerm);
+        if (aRecNoMatch && !bRecNoMatch) return -1;
+        if (!aRecNoMatch && bRecNoMatch) return 1;
+        const aDateMatch = (a.date || '').toString().toLowerCase().includes(searchTerm);
+        const bDateMatch = (b.date || '').toString().toLowerCase().includes(searchTerm);
+        if (aDateMatch && !bDateMatch) return -1;
+        if (!aDateMatch && bDateMatch) return 1;
+        const aSenderNameMatch = (a.senderName || '').toString().toLowerCase().includes(searchTerm);
+        const bSenderNameMatch = (b.senderName || '').toString().toLowerCase().includes(searchTerm);
+        if (aSenderNameMatch && !bSenderNameMatch) return -1;
+        if (!aSenderNameMatch && bSenderNameMatch) return 1;
+        return b.recNo - a.recNo;
       });
       displayResults(searchResults);
+      const resultsContainer = document.getElementById('results');
+      if (searchResults.length === 0) {
+        const noResultsDiv = document.createElement('div');
+        noResultsDiv.className = 'no-results';
+        noResultsDiv.textContent = 'No results found for "' + searchTerm + '"';
+        resultsContainer.appendChild(noResultsDiv);
+      }
     }
     function displayResults(results = packets) {
       results.sort((a, b) => b.recNo - a.recNo);
@@ -208,28 +205,27 @@
         const trackingLinks = trackingNumbers.map(tn => {
           const tn_trim = tn.trim();
           return tn_trim.startsWith('SG')
-            ? `<a href="https://shipglobal.au/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${tn_trim}</a>`
+            ? `<a href="https://shipglobal.au/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
             : tn_trim.startsWith('FFC')
-              ? `<a href="https://www.firstflightcanada.com/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${tn_trim}</a>`
-              : `<a href="https://www.aftership.com/track/${tn_trim}" target="_blank">${tn_trim}</a>`;
+              ? `<a href="https://www.firstflightcanada.com/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
+              : `<a href="https://www.aftership.com/track/${tn_trim}" target="_blank">${highlightText(tn_trim)}</a>`;
         }).join(', ');
         packetDiv.innerHTML = `
-          <p>Rec NO: ${packet.recNo}</p>
-          <p>Date: ${packet.date}</p>
-          <p>Email: ${packet.email}</p>
-          <p>Sender Name: ${packet.senderName}</p>
-          <p>Sender Address: ${packet.senderAddress}</p>
-          <p>Sender Contact: ${packet.senderContact}</p>
-          <p>Weight KG: ${packet.weightTicket}</p>
-          <p>Price: ${packet.price}</p>
-          <p>Receiver Name: ${packet.receiverName}</p>
-          <p>Receiver Address: ${packet.receiverAddress}</p>
-          <p>Receiver Contact: ${packet.receiverContact}</p>
-          <p>Update: ${packet.update}</p>
-          <p>Bill Item: ${packet.billItem}</p>
+          <p>Rec NO: ${highlightText(packet.recNo)}</p>
+          <p>Date: ${highlightText(packet.date)}</p>
+          <p>Email: ${highlightText(packet.email)}</p>
+          <p>Sender Name: ${highlightText(packet.senderName)}</p>
+          <p>Sender Address: ${highlightText(packet.senderAddress)}</p>
+          <p>Sender Contact: ${highlightText(packet.senderContact)}</p>
+          <p>Weight KG: ${highlightText(packet.weightTicket)}</p>
+          <p>Price: ${highlightText(packet.price)}</p>
+          <p>Receiver Name: ${highlightText(packet.receiverName)}</p>
+          <p>Receiver Address: ${highlightText(packet.receiverAddress)}</p>
+          <p>Receiver Contact: ${highlightText(packet.receiverContact)}</p>
+          <p>Update: ${highlightText(packet.update)}</p>
           <p>Tracking Number(s): ${trackingLinks}</p>
-          <p>Delivered Date: ${packet.deliveredDate}</p>
-          <p>Item: ${packet.courierTicket}</p>
+          <p>Delivered Date: ${highlightText(packet.deliveredDate)}</p>
+          <p>Item: ${highlightText(packet.courierTicket)}</p>
           <button onclick="editPacket(${packets.indexOf(packet)})">Edit</button>
           <button onclick="deletePacket(${packets.indexOf(packet)})" style="background-color: #e74c3c;">Delete</button>
           <button onclick="copyToClipboard(${packets.indexOf(packet)})">Copy</button>
@@ -241,108 +237,91 @@
         resultsContainer.appendChild(packetDiv);
       });
     }
+    function highlightText(text) {
+      if (!searchTerm || !text) return text;
+      const textStr = text.toString();
+      const searchStr = searchTerm.toLowerCase();
+      const lowerText = textStr.toLowerCase();
+      if (searchStr === '' || !lowerText.includes(searchStr)) return textStr;
+      let result = '';
+      let lastIndex = 0;
+      let index;
+      while ((index = lowerText.indexOf(searchStr, lastIndex)) !== -1) {
+        result += textStr.substring(lastIndex, index);
+        result += `<span class="highlight">${textStr.substring(index, index + searchStr.length)}</span>`;
+        lastIndex = index + searchStr.length;
+      }
+      result += textStr.substring(lastIndex);
+      return result;
+    }
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      searchTerm = '';
+      displayResults(packets);
+      calculateAndDisplayTotal(packets);
+    }
+    function debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+    document.getElementById('searchInput').addEventListener('input', debounce(() => {
+      searchData();
+      hideEntrySection();
+      calculateAndDisplayTotal();
+    }, 300));
     function downloadBill(index) {
       const packet = packets[index];
       const canvas = document.createElement('canvas');
-      canvas.width = 2417;
-      canvas.height = 1157;
+      canvas.width = 700;
+      canvas.height = 380;
       const ctx = canvas.getContext('2d');
       const logo = new Image();
-      logo.src = 'fourdirection.png';
+      logo.src = '4d.png';
       logo.onload = () => {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        const logoWidth = 2417;
-        const logoHeight = 1157;
-        ctx.drawImage(logo, 0, 0, logoWidth, logoHeight);
-        ctx.fillStyle = '#000000';
-        ctx.font = ' 44px Arial';
-        ctx.fillText(`${packet.recNo}`, 250, 397);
-        ctx.fillText(`${packet.date}`, 1890, 394);
-        ctx.fillText(`${packet.senderName}`, 570, 490);
-        ctx.fillText(`${packet.senderAddress}`, 320, 585);
-        ctx.fillText(`${packet.receiverAddress}`, 1158, 586);
-        ctx.fillText(`${packet.billItem}`, 150, 865)
-        // Amount in numbers and words
-        ctx.font = 'bold 58px Arial';
-        ctx.fillText(`${packet.price}.00`, 230, 995);
-
-        // Convert price to words
-        const amountInWords = numberToWords(packet.price);
-        ctx.font = '44px Arial';
-        ctx.fillText(`${amountInWords} rupees only`, 530, 677);
-        canvas.toBlob((blob) => {
-          const link = document.createElement('a');
-          link.download = `bill_${packet.recNo}.png`;
-          link.href = URL.createObjectURL(blob);
-          link.click();
-          URL.revokeObjectURL(link.href);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const logoWidth = 80;
+      const logoHeight = 80;
+      ctx.drawImage(logo, 10, 15, logoWidth, logoHeight);
+      ctx.fillStyle = '#000000';
+      ctx.font = '15px Arial';
+      ctx.fillText('Pan No: 603511989', 535, 20);
+      ctx.font = '25px Arial';
+      ctx.fillText('FOUR DIRECTION TRAVELS AND TOURS', 105, 50);
+      ctx.font = '20px Arial';
+      ctx.fillText('Bharatpur-10, Chitwan', 105, 90);
+      ctx.fillText('056-490449 / 9855020449', 425, 90);
+      ctx.beginPath();
+      ctx.moveTo(20, 110);
+      ctx.lineTo(680, 110);
+      ctx.stroke();
+      ctx.font = '18px Arial';
+      ctx.fillText(`Receipt No: ${packet.recNo}`, 20, 140);
+      ctx.fillText(`Date: ${packet.date}`, 530, 140);
+      ctx.fillText(`Name: ${packet.senderName}`, 20, 170);
+      ctx.fillText(`Contact: ${packet.senderContact}`, 500, 170);
+      ctx.fillText(`From: ${packet.senderAddress}`, 20, 200);
+      ctx.fillText(`To: ${packet.receiverAddress}`, 20, 230);
+      ctx.fillText(`Weight (KG): ${packet.weightTicket}`, 20, 260);
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText(`Amount: Rs. ${packet.price}`, 20, 295);
+      ctx.beginPath();
+      ctx.moveTo(20, 320);
+      ctx.lineTo(680, 320);
+      ctx.stroke();
+      ctx.font = '18px Arial';
+      ctx.fillText('Thank you for choosing Four Direction Travels And Couriers', 100, 360);
+      canvas.toBlob((blob) => {
+        const link = document.createElement('a');
+        link.download = `bill_${packet.recNo}.png`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        URL.revokeObjectURL(link.href);
         });
       };
-    }
-    function numberToWords(num) {
-      const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 
-                   'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 
-                   'Seventeen', 'Eighteen', 'Nineteen'];
-      const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-
-      // Make sure we're working with a number
-      num = parseFloat(num);
-      if (isNaN(num)) return '';
-
-      // For decimal places
-      const parts = num.toString().split('.');
-      let wholePart = parseInt(parts[0]);
-      const decimalPart = parts.length > 1 ? parseInt(parts[1]) : 0;
-
-      if (num === 0) return 'Zero';
-
-      function convertLessThanOneThousand(n) {
-        if (n === 0) return '';
-        if (n < 20) {
-          return ones[n];
-        }
-        if (n < 100) {
-          return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + ones[n % 10] : '');
-        }
-        return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' and ' + convertLessThanOneThousand(n % 100) : '');
-      }
-
-      let result = '';
-
-      // Handle billions
-      if (wholePart >= 1000000000) {
-        result += convertLessThanOneThousand(Math.floor(wholePart / 1000000000)) + ' Billion ';
-        wholePart %= 1000000000;
-      }
-
-      // Handle millions
-      if (wholePart >= 1000000) {
-        result += convertLessThanOneThousand(Math.floor(wholePart / 1000000)) + ' Million ';
-        wholePart %= 1000000;
-      }
-
-      // Handle thousands
-      if (wholePart >= 1000) {
-        result += convertLessThanOneThousand(Math.floor(wholePart / 1000)) + ' Thousand ';
-        wholePart %= 1000;
-      }
-
-      // Handle hundreds, tens and ones
-      if (wholePart > 0) {
-        result += convertLessThanOneThousand(wholePart);
-      }
-
-      // Handle decimal part
-      if (decimalPart > 0) {
-        // Make sure result is not empty before adding 'and'
-        if (result !== '') {
-          result += ' and ';
-        }
-        result += convertLessThanOneThousand(decimalPart) + ' Cents';
-      }
-
-      return result.trim();
     }
     function copyToClipboard(index) {
       const packet = packets[index];
@@ -359,7 +338,6 @@
     Receiver Address: ${packet.receiverAddress}
     Receiver Contact: ${packet.receiverContact}
     Update: ${packet.update}
-    Bill Item: ${packet.billItem}
     Tracking Number: ${packet.trackingNumber}
     Delivered Date: ${packet.deliveredDate}
     Item: ${packet.courierTicket}
@@ -398,20 +376,16 @@ Item: ${packet.courierTicket}`;
       `;
       container.appendChild(div);
     }
-
     function removeTrackingInput(button) {
       button.parentElement.remove();
     }
-
     function getTrackingNumbers() {
       const inputs = document.querySelectorAll('.tracking-input');
       return Array.from(inputs).map(input => input.value).filter(val => val);
     }
-
     function sendMail(index) {
       const packet = packets[index];
       const trackingNumbers = packet.trackingNumber.split(',').filter(t => t.trim());
-      
       const trackingInfo = trackingNumbers.map(tn => {
         const tn_trim = tn.trim();
         const link = tn_trim.startsWith('SG')
@@ -421,21 +395,18 @@ Item: ${packet.courierTicket}`;
             : `https://www.aftership.com/track/${encodeURIComponent(tn_trim)}`;
         return `\nTracking Number: ${tn_trim}\nTracking Link: ${link}`;
       }).join('\n');
-
       const mailBody = `Dear Customer,\n\nWe hope this email finds you well.\n\nWe are pleased to inform you that your recent shipment has been processed and assigned the following tracking information:${trackingInfo}\n\nIf you have any queries about your package please do not hesitate to contact us.\n\nThank you for choosing our service.\n\nBest regards,\nFour Direction Courier\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
       window.open(`https://mail.google.com/mail/u/0/?fs=1&tf=cm&to=${encodeURIComponent(packet.email)}&su=Your+Package+Status+by+Four+Direction&body=${encodeURIComponent(mailBody)}`, '_blank');
     }
     function editPacket(index) {
       if (!confirm("Are you sure you want to edit this entry?")) return;
       const packet = packets[index];
-      // Store the current recNo for later reference when saving
       window.currentEditingRecNo = packet.recNo;
       Object.entries(packet).forEach(([key, value]) => {
         const element = document.getElementById(key);
         if (element) element.value = value;
       });
       showEntrySection();
-      // Scroll to the top of the page
       window.scrollTo(0, 0);
     }
     function showEntrySection() {
@@ -446,8 +417,6 @@ Item: ${packet.courierTicket}`;
     }
     function deletePacket(index) {
       if (!confirm("Are you sure you want to delete this entry?")) return;
-      
-      // Find the packet's key in Firebase to delete it directly
       const packetToDelete = packets[index];
       database.ref('packets').once('value', (snapshot) => {
         snapshot.forEach((childSnapshot) => {
@@ -457,13 +426,9 @@ Item: ${packet.courierTicket}`;
           }
         });
       });
-      
-      // Update local array (for immediate UI update)
       packets.splice(index, 1);
       displayResults();
       applyFilter();
-      
-      // Scroll to the top of the page
       window.scrollTo(0, 0);
     }
     function applyFilter() {
