@@ -1,40 +1,118 @@
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {font-family: Arial, sans-serif; margin: 20px; background-color: #47c8ff;}
-    #title {text-align: center; font-size: 36px; font-weight: bold; color: #FC2E2E; width: 100%;}
-    label {display: block; margin-bottom: 5px; font-weight: bold;}
-    input, button, select {margin-bottom: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 300px;}
-    .tracking-group { display: flex; align-items: center; gap: 5px; margin-bottom: 10px; }
-    .tracking-input { margin-bottom: 0 !important; }
-    .tracking-group button { width: 30px !important; padding: 8px 0; }
-    button {background-color: #4caf50; color: white; cursor: pointer; width: 100px;}
-    #results {margin-top: 20px; width: 100%;}
-    .packet {border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; background-color: white;}
-    .packet p { margin: 0; }
-    .packet button { margin-top: 5px; }
-    #Search { background-color: #e61414; }
-    #Show { background-color: #0b0be0; }
-    #Export { background-color: #8c0869; }
-    #Save { background-color: #ff8800; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #47c8ff;
+    }
+
+    #title {
+      text-align: center;
+      font-size: 36px;
+      font-weight: bold;
+      color: #FC2E2E;
+      width: 100%;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input,
+    button,
+    select {
+      margin-bottom: 10px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      width: 300px;
+    }
+
+    .tracking-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+
+    .tracking-input {
+      margin-bottom: 0 !important;
+    }
+
+    .tracking-group button {
+      width: 30px !important;
+      padding: 8px 0;
+    }
+
+    button {
+      background-color: #4caf50;
+      color: white;
+      cursor: pointer;
+      width: 100px;
+    }
+
+    #results {
+      margin-top: 20px;
+      width: 100%;
+    }
+
+    .packet {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 10px;
+      background-color: white;
+    }
+
+    .packet p {
+      margin: 0;
+    }
+
+    .packet button {
+      margin-top: 5px;
+    }
+
+    #Clear {
+      background-color: #e61414;
+    }
+
+    #Save {
+      background-color: #ff8800;
+    }
+
+    .highlight {
+      background-color: yellow;
+      font-weight: bold;
+    }
+
+    .no-results {
+      padding: 15px;
+      text-align: center;
+      font-style: italic;
+      background-color: #f8f8f8;
+    }
   </style>
   <title>By Success</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
 </head>
+
 <body>
   <div id="title">Four Direction Travels And Tours</div>
   <div class="expenses">
-    <button onclick="window.location.href='expenses.html';" style="background-color: #00E3E1; color: #000000;">In/Ex</button>
+    <button onclick="window.location.href='expenses.html';"
+      style="background-color: #00E3E1; color: #000000;">In/Ex</button>
   </div>
   <div id="searchArea">
     <label>Search:</label>
     <input type="text" id="searchInput">
     <div>
-      <button id="Search" onclick="searchData(); hideEntrySection();">Search</button>
-      <button id="Show" onclick="showEntrySection()">Show</button>
+      <button id="Clear" onclick="clearSearch(); showEntrySection()">Clear Search</button>
     </div>
   </div>
   <div id="entrySection">
@@ -121,15 +199,15 @@
         alert('Please fill in all required input fields.');
         return;
       }
-      
+
       const enteredRecNo = document.getElementById('recNo').value.trim();
       const isEditing = window.currentEditingRecNo && window.currentEditingRecNo === enteredRecNo;
-      
+
       if (!isEditing && packets.some(packet => packet.recNo === enteredRecNo)) {
         alert('RecNo already exists. Please provide a different RecNo.');
         return;
       }
-      
+
       const packet = {
         recNo: enteredRecNo,
         date: document.getElementById('date').value,
@@ -148,7 +226,7 @@
         deliveredDate: document.getElementById('deliveredDate').value,
         courierTicket: document.getElementById('courierTicket').value
       };
-      
+
       if (isEditing) {
         // Update existing record
         database.ref('packets').once('value', (snapshot) => {
@@ -163,39 +241,48 @@
         // Add new record
         database.ref('packets').push(packet);
       }
-      
+
       // Reset editing state
       window.currentEditingRecNo = null;
-      
+
       clearInputs();
       displayResults();
       applyFilter();
     }
     function searchData() {
       searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
-      let searchValue = searchTerm;
-      let searchField = '';
-      const prefixes = {
-        'r-': 'recNo', 't-': 'trackingNumber', 'd-': 'date',
-        'sn-': 'senderName', 'sc-': 'senderContact', 'sa-': 'senderAddress',
-        'rn-': 'receiverName', 'rc-': 'receiverContact', 'ra-': 'receiverAddress'
-      };
-      for (const [prefix, field] of Object.entries(prefixes)) {
-        if (searchTerm.startsWith(prefix)) {
-          searchValue = searchTerm.substring(prefix.length);
-          searchField = field;
-          break;
-        }
+      if (!searchTerm) {
+        displayResults(packets);
+        return;
       }
-      const searchResults = packets.filter(packet => {
-        if (searchField) {
-          return (packet[searchField] || '').toString().toLowerCase().includes(searchValue);
-        }
-        return Object.values(packet).some(val =>
-          val && val.toString().toLowerCase().includes(searchValue)
-        );
+      const searchResults = packets.filter(packet =>
+        Object.values(packet).some(val =>
+          val && val.toString().toLowerCase().includes(searchTerm)
+        )
+      );
+      searchResults.sort((a, b) => {
+        const aRecNoMatch = (a.recNo || '').toString().toLowerCase().includes(searchTerm);
+        const bRecNoMatch = (b.recNo || '').toString().toLowerCase().includes(searchTerm);
+        if (aRecNoMatch && !bRecNoMatch) return -1;
+        if (!aRecNoMatch && bRecNoMatch) return 1;
+        const aDateMatch = (a.date || '').toString().toLowerCase().includes(searchTerm);
+        const bDateMatch = (b.date || '').toString().toLowerCase().includes(searchTerm);
+        if (aDateMatch && !bDateMatch) return -1;
+        if (!aDateMatch && bDateMatch) return 1;
+        const aSenderNameMatch = (a.senderName || '').toString().toLowerCase().includes(searchTerm);
+        const bSenderNameMatch = (b.senderName || '').toString().toLowerCase().includes(searchTerm);
+        if (aSenderNameMatch && !bSenderNameMatch) return -1;
+        if (!aSenderNameMatch && bSenderNameMatch) return 1;
+        return b.recNo - a.recNo;
       });
       displayResults(searchResults);
+      const resultsContainer = document.getElementById('results');
+      if (searchResults.length === 0) {
+        const noResultsDiv = document.createElement('div');
+        noResultsDiv.className = 'no-results';
+        noResultsDiv.textContent = 'No results found for "' + searchTerm + '"';
+        resultsContainer.appendChild(noResultsDiv);
+      }
     }
     function displayResults(results = packets) {
       results.sort((a, b) => b.recNo - a.recNo);
@@ -208,28 +295,28 @@
         const trackingLinks = trackingNumbers.map(tn => {
           const tn_trim = tn.trim();
           return tn_trim.startsWith('SG')
-            ? `<a href="https://shipglobal.au/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${tn_trim}</a>`
+            ? `<a href="https://shipglobal.au/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
             : tn_trim.startsWith('FFC')
-              ? `<a href="https://www.firstflightcanada.com/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${tn_trim}</a>`
-              : `<a href="https://www.aftership.com/track/${tn_trim}" target="_blank">${tn_trim}</a>`;
+              ? `<a href="https://www.firstflightcanada.com/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
+              : `<a href="https://www.aftership.com/track/${tn_trim}" target="_blank">${highlightText(tn_trim)}</a>`;
         }).join(', ');
         packetDiv.innerHTML = `
-          <p>Rec NO: ${packet.recNo}</p>
-          <p>Date: ${packet.date}</p>
-          <p>Email: ${packet.email}</p>
-          <p>Sender Name: ${packet.senderName}</p>
-          <p>Sender Address: ${packet.senderAddress}</p>
-          <p>Sender Contact: ${packet.senderContact}</p>
-          <p>Weight KG: ${packet.weightTicket}</p>
-          <p>Price: ${packet.price}</p>
-          <p>Receiver Name: ${packet.receiverName}</p>
-          <p>Receiver Address: ${packet.receiverAddress}</p>
-          <p>Receiver Contact: ${packet.receiverContact}</p>
-          <p>Update: ${packet.update}</p>
-          <p>Bill Item: ${packet.billItem}</p>
+          <p>Rec NO: ${highlightText(packet.recNo)}</p>
+          <p>Date: ${highlightText(packet.date)}</p>
+          <p>Email: ${highlightText(packet.email)}</p>
+          <p>Sender Name: ${highlightText(packet.senderName)}</p>
+          <p>Sender Address: ${highlightText(packet.senderAddress)}</p>
+          <p>Sender Contact: ${highlightText(packet.senderContact)}</p>
+          <p>Weight KG: ${highlightText(packet.weightTicket)}</p>
+          <p>Price: ${highlightText(packet.price)}</p>
+          <p>Receiver Name: ${highlightText(packet.receiverName)}</p>
+          <p>Receiver Address: ${highlightText(packet.receiverAddress)}</p>
+          <p>Receiver Contact: ${highlightText(packet.receiverContact)}</p>
+          <p>Update: ${highlightText(packet.update)}</p>
+          <p>Bill Item: ${highlightText(packet.billItem)}</p>
           <p>Tracking Number(s): ${trackingLinks}</p>
-          <p>Delivered Date: ${packet.deliveredDate}</p>
-          <p>Item: ${packet.courierTicket}</p>
+          <p>Delivered Date: ${highlightText(packet.deliveredDate)}</p>
+          <p>Item: ${highlightText(packet.courierTicket)}</p>
           <button onclick="editPacket(${packets.indexOf(packet)})">Edit</button>
           <button onclick="deletePacket(${packets.indexOf(packet)})" style="background-color: #e74c3c;">Delete</button>
           <button onclick="copyToClipboard(${packets.indexOf(packet)})">Copy</button>
@@ -241,6 +328,41 @@
         resultsContainer.appendChild(packetDiv);
       });
     }
+    function highlightText(text) {
+      if (!searchTerm || !text) return text;
+      const textStr = text.toString();
+      const searchStr = searchTerm.toLowerCase();
+      const lowerText = textStr.toLowerCase();
+      if (searchStr === '' || !lowerText.includes(searchStr)) return textStr;
+      let result = '';
+      let lastIndex = 0;
+      let index;
+      while ((index = lowerText.indexOf(searchStr, lastIndex)) !== -1) {
+        result += textStr.substring(lastIndex, index);
+        result += `<span class="highlight">${textStr.substring(index, index + searchStr.length)}</span>`;
+        lastIndex = index + searchStr.length;
+      }
+      result += textStr.substring(lastIndex);
+      return result;
+    }
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      searchTerm = '';
+      displayResults(packets);
+      calculateAndDisplayTotal(packets);
+    }
+    function debounce(func, wait) {
+      let timeout;
+      return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+    document.getElementById('searchInput').addEventListener('input', debounce(() => {
+      searchData();
+      hideEntrySection();
+      calculateAndDisplayTotal();
+    }, 300));
     function downloadBill(index) {
       const packet = packets[index];
       const canvas = document.createElement('canvas');
@@ -281,9 +403,9 @@
       };
     }
     function numberToWords(num) {
-      const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 
-                   'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 
-                   'Seventeen', 'Eighteen', 'Nineteen'];
+      const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+        'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+        'Seventeen', 'Eighteen', 'Nineteen'];
       const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
       // Make sure we're working with a number
@@ -411,7 +533,7 @@ Item: ${packet.courierTicket}`;
     function sendMail(index) {
       const packet = packets[index];
       const trackingNumbers = packet.trackingNumber.split(',').filter(t => t.trim());
-      
+
       const trackingInfo = trackingNumbers.map(tn => {
         const tn_trim = tn.trim();
         const link = tn_trim.startsWith('SG')
@@ -446,7 +568,7 @@ Item: ${packet.courierTicket}`;
     }
     function deletePacket(index) {
       if (!confirm("Are you sure you want to delete this entry?")) return;
-      
+
       // Find the packet's key in Firebase to delete it directly
       const packetToDelete = packets[index];
       database.ref('packets').once('value', (snapshot) => {
@@ -457,12 +579,12 @@ Item: ${packet.courierTicket}`;
           }
         });
       });
-      
+
       // Update local array (for immediate UI update)
       packets.splice(index, 1);
       displayResults();
       applyFilter();
-      
+
       // Scroll to the top of the page
       window.scrollTo(0, 0);
     }
