@@ -1,495 +1,372 @@
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Expense Tracker</title>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     <style>
-        body {
-    font-family: 'Inter', Arial, sans-serif;
-    margin: 0;
-    padding: 20px;
-    background-color: #f0f4f8;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 1.6;
-    transition: background-color 0.3s ease;
-}
-
-#title {
-    text-align: center;
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 20px;
-    color: #2c3e50;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    background: linear-gradient(45deg, #3498db, #2ecc71);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: gradientShift 5s ease infinite;
-    transition: all 0.4s ease;
-}
-
-@keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
-#title:hover {
-    transform: scale(1.05);
-}
-
-button {
-    margin: 10px;
-    padding: 10px 15px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    text-transform: uppercase;
-    background-color: #f34444;
-}
-    #addExpenseButton {
-            margin: 10px;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            text-transform: uppercase;
-            background-color: #4fe70d;
+        * {margin:0;padding:0;box-sizing:border-box;}
+        body {font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8f9fa;min-height:100vh;color:#333;}
+        .container {max-width:100%;padding:10px;min-height:100vh;}
+        .header {text-align:center;margin-bottom:20px;padding:20px;background:white;border-radius:15px;box-shadow:0 2px 10px rgba(0,0,0,0.1);border:1px solid #e1e5e9;}
+        .title {font-size:clamp(1.5rem,4vw,2.5rem);font-weight:700;color:#2c3e50;margin-bottom:10px;}
+        .nav-button {background:linear-gradient(45deg,#007bff,#0056b3);color:white;border:none;padding:12px 24px;border-radius:25px;font-weight:600;cursor:pointer;transition:all 0.3s ease;box-shadow:0 2px 10px rgba(0,123,255,0.3);}
+        .nav-button:hover {transform:translateY(-2px);box-shadow:0 4px 15px rgba(0,123,255,0.4);}
+        .controls {display:grid;grid-template-columns:1fr;gap:15px;margin-bottom:20px;}
+        .search-section,.add-section {background:white;padding:20px;border-radius:15px;box-shadow:0 2px 10px rgba(0,0,0,0.1);border:1px solid #e1e5e9;transition:all 0.3s ease;}
+        .search-section {position:sticky;top:10px;z-index:100;}
+        .add-section {display:block;animation:slideDown 0.3s ease;}
+        .add-section.show {display:block;}
+        @keyframes slideDown {from{opacity:0;transform:translateY(-20px);}to{opacity:1;transform:translateY(0);}}
+        .input-group {display:flex;flex-direction:column;gap:10px;margin-bottom:15px;}
+        .input-row {display:grid;grid-template-columns:1fr 2fr;gap:10px;align-items:center;}
+        label {font-weight:600;color:#555;font-size:14px;}
+        input,select {padding:12px;border:2px solid #e1e5e9;border-radius:10px;font-size:16px;transition:all 0.3s ease;background:white;}
+        input:focus,select:focus {outline:none;border-color:#007bff;box-shadow:0 0 0 3px rgba(0,123,255,0.1);}
+        .search-input {width:100%;padding:15px 20px;font-size:16px;border:2px solid #e1e5e9;border-radius:25px;background:white;transition:all 0.3s ease;}
+        .search-input:focus {border-color:#007bff;box-shadow:0 0 0 3px rgba(0,123,255,0.1);}
+        .filter-controls {display:flex;gap:10px;align-items:center;margin-top:15px;flex-wrap:wrap;}
+        .filter-select,.view-select {padding:8px 12px;border:2px solid #e1e5e9;border-radius:20px;background:white;font-size:14px;}
+        .add-button {background:linear-gradient(45deg,#4CAF50,#45a049);color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;transition:all 0.3s ease;font-size:16px;width:100%;}
+        .add-button:hover {transform:translateY(-2px);box-shadow:0 8px 25px rgba(76,175,80,0.3);}
+        .stats {display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-bottom:20px;}
+        .stat-card {background:white;padding:20px;border-radius:15px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,0.1);border:1px solid #e1e5e9;}
+        .stat-label {font-size:14px;color:#666;margin-bottom:5px;}
+        .stat-value {font-size:18px;font-weight:700;color:#333;}
+        .stat-value.positive {color:#4CAF50;}
+        .stat-value.negative {color:#f44336;}
+        .data-section {background:white;border-radius:15px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);border:1px solid #e1e5e9;}
+        .section-header {background:linear-gradient(45deg,#007bff,#0056b3);color:white;padding:20px;font-size:18px;font-weight:600;}
+        .table-container {max-height:400px;overflow-y:auto;}
+        table {width:100%;border-collapse:collapse;}
+        th,td {padding:12px;text-align:left;border-bottom:1px solid #e1e5e9;}
+        th {background:#f8f9fa;font-weight:600;color:#555;position:sticky;top:0;z-index:10;}
+        tr:hover {background:#f8f9fa;}
+        .edit-btn {background:#2196F3;color:white;border:none;padding:6px 12px;border-radius:15px;cursor:pointer;font-size:12px;transition:all 0.3s ease;}
+        .edit-btn:hover {background:#1976D2;transform:scale(1.05);}
+        .hidden {display:none !important;}
+        .no-data {text-align:center;padding:40px;color:#666;font-style:italic;}
+        @media (max-width:768px) {
+            .container {padding:5px;}
+            .input-row {grid-template-columns:1fr;}
+            .filter-controls {justify-content:center;}
+            th,td {padding:8px;font-size:14px;}
+            .stats {grid-template-columns:repeat(2,1fr);}
         }
-
-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
-}
-
-#search, #expensesInput {
-    width: 100%;
-    max-width: 500px;
-    background-color: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    margin-bottom: 20px;
-    transition: all 0.4s ease;
-}
-
-#search:hover, #expensesInput:hover {
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-}
-
-label {
-    font-weight: 600;
-    color: #34495e;
-    margin-top: 10px;
-    transition: color 0.3s ease;
-}
-
-input, select {
-    width: 100%;
-    padding: 10px;
-    margin: 8px 0;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    transition: all 0.3s ease;
-}
-
-input:focus, select:focus {
-    outline: none;
-    border-color: #3498db;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-}
-
-#incomeAndExpenses {
-    display: flex;
-    width: 100%;
-    max-width: 1200px;
-    justify-content: space-between;
-    gap: 20px;
-}
-
-#income, #expenses {
-    flex: 1;
-    background-color: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    transition: all 0.4s ease;
-}
-
-#income:hover, #expenses:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-}
-
-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-}
-
-th {
-    background-color: #3498db;
-    color: white;
-    padding: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: background-color 0.3s ease;
-}
-
-th:hover {
-    background-color: #2980b9;
-}
-
-td {
-    padding: 10px;
-    border-bottom: 1px solid #f0f0f0;
-    transition: background-color 0.3s ease;
-}
-
-tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-tr:hover {
-    background-color: #f0f0f0;
-}
-
-.edit-delete-buttons button {
-    background-color: #3498db;
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-    margin: 0 5px;
-    transition: all 0.3s ease;
-}
-
-.edit-delete-buttons button:hover {
-    background-color: #2980b9;
-}
-
-@media (max-width: 768px) {
-    #incomeAndExpenses {
-        flex-direction: column;
-    }
-}
-#viewToggle {
-    margin-bottom: 20px;
-    text-align: center;
-}
+        @media (max-width:480px) {
+            .stats {grid-template-columns:1fr;}
+            table {font-size:12px;}
+        }
     </style>
-    <title>By Success</title>
 </head>
-
 <body>
-    <div id="title">
-        Four Direction Income and Expenses
-    </div>
-    <div>
-        <button onclick="window.location.href = 'index.html';"
-            style="background-color: #00E3E1; color: #000000; box-shadow: 0 0 10px #000000; transition: transform 0.3s; cursor: pointer; font-weight: bold;"
-            onmouseover="this.style.transform='scale(1.05)';" onmouseout="this.style.transform='scale(1)';">Business</button>
-    </div>
-   <div id="search">
-     <label for="searchExpense">Search:</label>
-     <input type="text" id="searchExpense">
-       <button id="searchExpenseButton" onclick="search(), toggleExpensesInput()">Search</button>
-     </div>
-    <div id="expensesInput">
-        <label for="expenseDate">Date:</label>
-        <input type="date" id="expenseDate">
-        <label for="expensePrice">Price:</label>
-        <input type="number" id="expensePrice">
-        <label for="expenseDetails">Details:</label>
-        <input type="text" id="expenseDetails">
-        <button id="addExpenseButton" onclick="addExpense() ">Add Expense</button>
-        <div id="filterSection">
-            <label for="filterSelect">Filter:</label>
-            <select id="filterSelect" onchange="filterData()">
-                <option value="all" selected>All</option>
-                <option value="day">This Day</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-                <option value="year">This Year</option>
-            </select>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Smart Expense Tracker</h1>
+            <button class="nav-button" onclick="window.location.href = 'index.html';">Business</button>
         </div>
-       <p>Total Balance: RS <span id="totalProfit">0.00</span></p>
-        <div id="viewToggle">
-            <label for="viewSelect">View:</label>
-                <select id="viewSelect" onchange="toggleView()">
+        <div class="controls">
+            <div class="search-section">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search expenses, income..." autocomplete="off">
+                <div class="filter-controls">
+                    <label>Filter:</label>
+                    <select id="timeFilter" class="filter-select">
+                        <option value="all">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="year">This Year</option>
+                    </select>
+                    <label>View:</label>
+                    <select id="viewSelect" class="view-select">
+                        <option value="expenses">Expenses</option>
                         <option value="income">Income</option>
-                        <option value="expenses" selected>Expenses</option>
-                </select>
+                        <option value="both">Both</option>
+                    </select>
+                </div>
+            </div>
+            <div id="addSection" class="add-section">
+                <div class="input-group">
+                    <div class="input-row">
+                        <label for="expenseDate">Date:</label>
+                        <input type="date" id="expenseDate">
+                    </div>
+                    <div class="input-row">
+                        <label for="expensePrice">Amount:</label>
+                        <input type="number" id="expensePrice" placeholder="0.00" step="0.01">
+                    </div>
+                    <div class="input-row">
+                        <label for="expenseDetails">Details:</label>
+                        <input type="text" id="expenseDetails" placeholder="Enter expense details">
+                    </div>
+                </div>
+                <button class="add-button" onclick="addExpense()">Add Expense</button>
             </div>
         </div>
-
-    <div id="incomeAndExpenses">
-        <div id="income">
-            <h2>Income</h2>
-          <p>Total Income: RS <span id="totalIncome">0.00</span></p>
-            <table id="incomeTable">
-                <tr>
-                    <th>Date</th>
-                    <th>Rec No</th>
-                    <th>Price</th>
-                </tr>
-                <!-- income display-->
-            </table>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">Total Income</div>
+                <div id="totalIncome" class="stat-value positive">Rs 0.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Expenses</div>
+                <div id="totalExpenses" class="stat-value negative">Rs 0.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Balance</div>
+                <div id="totalBalance" class="stat-value">Rs 0.00</div>
+            </div>
         </div>
-        <div id="expenses">
-            <h2>Expenses</h2>
-          <p>Total Expenses: RS <span id="totalExpenses">0.00</span></p>
-            <table id="expensesTable">
-                <tr>
-                    <th>Actions</th>
-                    <th>Date</th>
-                    <th>Price</th>
-                    <th>Details</th>
-                </tr>
-                <!-- Expenses displa-->
-            </table>
+        <div id="expensesSection" class="data-section">
+            <div class="section-header">Expenses</div>
+            <div class="table-container">
+                <table id="expensesTable">
+                    <thead>
+                        <tr>
+                            <th>Actions</th>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div id="expensesNoData" class="no-data hidden">No expenses found</div>
+            </div>
+        </div>
+        <div id="incomeSection" class="data-section hidden">
+            <div class="section-header">Income</div>
+            <div class="table-container">
+                <table id="incomeTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th>Update</th>
+                            <th>Name</th>
+                            <th>Receiver Address</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div id="incomeNoData" class="no-data hidden">No income found</div>
+            </div>
         </div>
     </div>
     <script>
         const firebaseConfig = {
-  apiKey: "AIzaSyD-K2DkVKhkza2KEo3sa3AGKXt6MJCBV6c",
-  authDomain: "d-data-storage-399801.firebaseapp.com",
-  databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
-  projectId: "d-data-storage-399801",
-  storageBucket: "d-data-storage-399801.firebasestorage.app",
-  messagingSenderId: "515303559494",
-  appId: "1:515303559494:web:45a267241b37980cec9547",
-  measurementId: "G-W8CJ6F0GL6"
-};
+            apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
+            authDomain: "d-data-storage-399801.firebaseapp.com",
+            projectId: "d-data-storage-399801",
+            storageBucket: "d-data-storage-399801.appspot.com",
+            messagingSenderId: "515303559494",
+            appId: "1:515303559494:web:46cece8a07ce607aec9547",
+            measurementId: "G-XZHYK7WP4R"
+        };
         const app = firebase.initializeApp(firebaseConfig);
         const database = app.database();
-      function displayIncome(packets) {
-          const incomeTable = document.getElementById('incomeTable');
-          incomeTable.innerHTML = '<tr><th>Date</th><th>Rec No</th><th>Price</th></tr>';
-          packets.sort((b, a) => {
-              if (b.date === a.date) {
-                  return b.recNo - a.recNo;
-              }
-              return a.date.localeCompare(b.date);
-          });
-          packets.forEach((item) => {
-              const row = document.createElement('tr');
-              row.innerHTML = `<td>${item.date}</td><td>${item.recNo}</td><td>${item.price}</td>`;
-              incomeTable.appendChild(row);
-          });
-      }
-      function hideExpensesInput() {
-        const entrySection = document.getElementById('expensesInput');
-        entrySection.style.display = 'none';
-      }
-      function showExpensesInput() {
-        const entrySection = document.getElementById('expensesInput');
-        entrySection.style.display = 'flex';
-        entrySection.style.flexDirection = 'column';
-        entrySection.style.alignItems = 'center';
-        entrySection.style.width = '100%';
-      }
-      function toggleExpensesInput() {
-        const entrySection = document.getElementById('expensesInput');
-        if (entrySection.style.display === 'none') {
-          showExpensesInput();
-        } else {
-          hideExpensesInput();
-        }
-      }
-      function toggleView() {
-    const view = document.getElementById('viewSelect').value;
-    const incomeSection = document.getElementById('income');
-    const expensesSection = document.getElementById('expenses');
-    
-    if (view === 'income') {
-        incomeSection.style.display = 'block';
-        expensesSection.style.display = 'none';
-    } else {
-        incomeSection.style.display = 'none';
-        expensesSection.style.display = 'block';
-    }
-}
-
-// Set initial visibility
-document.getElementById('income').style.display = 'none';
-
-      function search() {
-          const keyword = document.getElementById('searchExpense').value.toLowerCase();
-          let totalExpenses = 0;
-          let totalIncome = 0;
-          const expensesTable = document.getElementById('expensesTable');
-          const incomeTable = document.getElementById('incomeTable');
-          const rowsExpenses = expensesTable.getElementsByTagName('tr');
-          for (let i = 1; i < rowsExpenses.length; i++) {
-              const row = rowsExpenses[i];
-              const dateCell = row.cells[1].textContent.toLowerCase();
-              const priceCell = row.cells[2].textContent.toLowerCase();
-              const detailsCell = row.cells[3].textContent.toLowerCase();
-              if (dateCell.includes(keyword) || priceCell.includes(keyword) || detailsCell.includes(keyword)) {
-                  row.style.display = '';
-                  totalExpenses += parseFloat(priceCell);
-              } else {
-                  row.style.display = 'none';
-              }
-          }
-          const rowsIncome = incomeTable.getElementsByTagName('tr');
-          for (let i = 1; i < rowsIncome.length; i++) {
-              const row = rowsIncome[i];
-              const dateCell = row.cells[0].textContent.toLowerCase();
-              const recNoCell = row.cells[1].textContent.toLowerCase();
-              const priceCell = row.cells[2].textContent.toLowerCase();
-
-              if (dateCell.includes(keyword) || recNoCell.includes(keyword) || priceCell.includes(keyword)) {
-                  row.style.display = '';
-                  totalIncome += parseFloat(priceCell);
-              } else {
-                  row.style.display = 'none';
-              }
-          }
-          document.getElementById('totalExpenses').textContent = totalExpenses.toFixed(2);
-          document.getElementById('totalIncome').textContent = totalIncome.toFixed(2);
-
-          const totalBalance = totalIncome - totalExpenses;
-          document.getElementById('totalProfit').textContent = totalBalance.toFixed(2);
-      }
-      function filterData() {
-          const filter = document.getElementById('filterSelect').value;
-          const currentDate = new Date();
-          let totalExpenses = 0;
-          let totalIncome = 0;
-          const expensesTable = document.getElementById('expensesTable');
-          const incomeTable = document.getElementById('incomeTable');
-          const rowsExpenses = expensesTable.getElementsByTagName('tr');
-          const rowsIncome = incomeTable.getElementsByTagName('tr');
-          for (let i = 1; i < rowsExpenses.length; i++) {
-              const dateCell = rowsExpenses[i].cells[1].textContent;
-              const expenseDate = new Date(dateCell);
-              if (filter === 'all' ||
-                  (filter === 'day' && expenseDate.toDateString() === currentDate.toDateString()) ||
-                  (filter === 'week' && (currentDate - expenseDate) / (1000 * 60 * 60 * 24 * 7) < 1) ||
-                  (filter === 'month' && expenseDate.getMonth() === currentDate.getMonth()) ||
-                  (filter === 'year' && expenseDate.getFullYear() === currentDate.getFullYear())) {
-                  totalExpenses += parseFloat(rowsExpenses[i].cells[2].textContent);
-                  rowsExpenses[i].style.display = '';
-              } else {
-                  rowsExpenses[i].style.display = 'none';
-              }
-          }
-          for (let i = 1; i < rowsIncome.length; i++) {
-              const dateCell = rowsIncome[i].cells[0].textContent;
-              const incomeDate = new Date(dateCell);
-
-              if (filter === 'all' ||
-                  (filter === 'day' && incomeDate.toDateString() === currentDate.toDateString()) ||
-                  (filter === 'week' && (currentDate - incomeDate) / (1000 * 60 * 60 * 24 * 7) < 1) ||
-                  (filter === 'month' && incomeDate.getMonth() === currentDate.getMonth()) ||
-                  (filter === 'year' && incomeDate.getFullYear() === currentDate.getFullYear())) {
-                  totalIncome += parseFloat(rowsIncome[i].cells[2].textContent);
-                  rowsIncome[i].style.display = '';
-              } else {
-                  rowsIncome[i].style.display = 'none';
-              }
-          }
-          document.getElementById('totalExpenses').textContent = totalExpenses.toFixed(2);
-          document.getElementById('totalIncome').textContent = totalIncome.toFixed(2);
-        
-        const totalProfit = totalIncome - totalExpenses;
-        document.getElementById('totalProfit').textContent = totalProfit.toFixed(2);
-      }
-
-      function displayExpenses(expenses) {
-          const expensesTable = document.getElementById('expensesTable');
-          expensesTable.innerHTML = '<tr><th>Actions</th><th>Date</th><th>Price</th><th>Details</th></tr>';
-          expenses.sort((b, a) => new Date(a.date) - new Date(b.date));
-          expenses.forEach((item) => {
-              const row = document.createElement('tr');
-              row.innerHTML = `
-                  <td class="edit-delete-buttons">
-                      <button onclick="toggleExpensesInput() , editExpense('${item.date}', '${item.price}', '${item.details}')">Edit</button>
-                  </td>
-                  <td>${item.date}</td>
-                  <td>${item.price}</td>
-                  <td>${item.details}</td>`;
-              expensesTable.appendChild(row);
-          });
-      }
-        function fetchIncome() {
-            const packetsRef = database.ref('packets');
-            packetsRef.on('value', (snapshot) => {
-                const packets = [];
-                snapshot.forEach((childSnapshot) => {
-                    const packet = childSnapshot.val();
-                    packets.push(packet);
-                });
-
-                displayIncome(packets);
-            });
-        }
+        let allExpenses = [];
+        let allIncome = [];
+        let filteredExpenses = [];
+        let filteredIncome = [];
+        let isEditing = false;
+        let editingExpense = null;
+        const searchInput = document.getElementById('searchInput');
+        const timeFilter = document.getElementById('timeFilter');
+        const viewSelect = document.getElementById('viewSelect');
+        const addSection = document.getElementById('addSection');
+        const expensesSection = document.getElementById('expensesSection');
+        const incomeSection = document.getElementById('incomeSection');
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
+            fetchExpenses();
+            fetchIncome();
+            searchInput.addEventListener('input', handleSearch);
+            timeFilter.addEventListener('change', applyFilters);
+            viewSelect.addEventListener('change', handleViewChange);
+        });
         function fetchExpenses() {
             const expensesRef = database.ref('expenses');
             expensesRef.on('value', (snapshot) => {
-                const expenses = [];
+                allExpenses = [];
                 snapshot.forEach((childSnapshot) => {
                     const expense = childSnapshot.val();
-                    expenses.push(expense);
+                    allExpenses.push({...expense, key: childSnapshot.key});
                 });
-
-                displayExpenses(expenses);
+                applyFilters();
             });
         }
-        fetchIncome();
-        fetchExpenses();
+        function fetchIncome() {
+            const packetsRef = database.ref('packets');
+            packetsRef.on('value', (snapshot) => {
+                allIncome = [];
+                snapshot.forEach((childSnapshot) => {
+                    const packet = childSnapshot.val();
+                    allIncome.push({...packet, key: childSnapshot.key});
+                });
+                applyFilters();
+            });
+        }
+        function applyTimeFilter(data) {
+            const filter = timeFilter.value;
+            const currentDate = new Date();
+            if (filter === 'all') return data;
+            return data.filter(item => {
+                const itemDate = new Date(item.date);
+                switch (filter) {
+                    case 'today':
+                        return itemDate.toDateString() === currentDate.toDateString();
+                    case 'week':
+                        const weekAgo = new Date(currentDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        return itemDate >= weekAgo;
+                    case 'month':
+                        return itemDate.getMonth() === currentDate.getMonth() && itemDate.getFullYear() === currentDate.getFullYear();
+                    case 'year':
+                        return itemDate.getFullYear() === currentDate.getFullYear();
+                    default:
+                        return true;
+                }
+            });
+        }
+        function applySearchFilter(data, isIncome = false) {
+            const keyword = searchInput.value.toLowerCase().trim();
+            if (!keyword) return data;
+            return data.filter(item => {
+                if (isIncome) {
+                    const searchFields = [item.date, item.price, item.update, item.receiverName, item.receiverAddress];
+                    return searchFields.some(field => field && field.toString().toLowerCase().includes(keyword));
+                } else {
+                    const searchFields = [item.date, item.price, item.details];
+                    return searchFields.some(field => field && field.toString().toLowerCase().includes(keyword));
+                }
+            });
+        }
+        function applyFilters() {
+            const timeFilteredExpenses = applyTimeFilter(allExpenses);
+            const timeFilteredIncome = applyTimeFilter(allIncome);
+            filteredExpenses = applySearchFilter(timeFilteredExpenses, false);
+            filteredIncome = applySearchFilter(timeFilteredIncome, true);
+            displayExpenses();
+            displayIncome();
+            updateStats();
+        }
+        function handleSearch() {
+            const hasSearch = searchInput.value.trim().length > 0;
+            if (hasSearch && !isEditing) {
+                addSection.classList.remove('show');
+            } else if (!hasSearch || isEditing) {
+                addSection.classList.add('show');
+            }
+            applyFilters();
+        }
+        function displayExpenses() {
+            const tbody = document.querySelector('#expensesTable tbody');
+            const noData = document.getElementById('expensesNoData');
+            tbody.innerHTML = '';
+            if (filteredExpenses.length === 0) {
+                noData.classList.remove('hidden');
+                return;
+            }
+            noData.classList.add('hidden');
+            filteredExpenses.sort((a, b) => new Date(b.date) - new Date(a.date));
+            filteredExpenses.forEach(expense => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><button class="edit-btn" onclick="editExpense('${expense.key}')">Edit</button></td>
+                    <td>${expense.date}</td>
+                    <td>Rs ${parseFloat(expense.price).toFixed(2)}</td>
+                    <td>${expense.details}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        function displayIncome() {
+            const tbody = document.querySelector('#incomeTable tbody');
+            const noData = document.getElementById('incomeNoData');
+            tbody.innerHTML = '';
+            if (filteredIncome.length === 0) {
+                noData.classList.remove('hidden');
+                return;
+            }
+            noData.classList.add('hidden');
+            filteredIncome.sort((a, b) => new Date(b.date) - new Date(a.date));
+            filteredIncome.forEach(income => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${income.date}</td>
+                    <td>Rs ${parseFloat(income.price).toFixed(2)}</td>
+                    <td>${income.update || '-'}</td>
+                    <td>${income.receiverName || '-'}</td>
+                    <td>${income.receiverAddress || '-'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        function updateStats() {
+            const totalIncomeAmount = filteredIncome.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
+            const totalExpensesAmount = filteredExpenses.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
+            const balance = totalIncomeAmount - totalExpensesAmount;
+            document.getElementById('totalIncome').textContent = `Rs ${totalIncomeAmount.toFixed(2)}`;
+            document.getElementById('totalExpenses').textContent = `Rs ${totalExpensesAmount.toFixed(2)}`;
+            const balanceElement = document.getElementById('totalBalance');
+            balanceElement.textContent = `Rs ${balance.toFixed(2)}`;
+            balanceElement.className = `stat-value ${balance >= 0 ? 'positive' : 'negative'}`;
+        }
+        function handleViewChange() {
+            const view = viewSelect.value;
+            switch (view) {
+                case 'expenses':
+                    expensesSection.classList.remove('hidden');
+                    incomeSection.classList.add('hidden');
+                    break;
+                case 'income':
+                    expensesSection.classList.add('hidden');
+                    incomeSection.classList.remove('hidden');
+                    break;
+                case 'both':
+                    expensesSection.classList.remove('hidden');
+                    incomeSection.classList.remove('hidden');
+                    break;
+            }
+        }
         function addExpense() {
             const date = document.getElementById('expenseDate').value;
             const price = document.getElementById('expensePrice').value;
             const details = document.getElementById('expenseDetails').value;
-            const expensesRef = database.ref('expenses');
-            expensesRef.push({
-                date: date,
-                price: price,
-                details: details
-            });
-
-            document.getElementById('expenseDate').value = '';
+            if (!date || !price || !details) {
+                alert('Please fill all fields');
+                return;
+            }
+            const expenseData = {date: date, price: parseFloat(price).toString(), details: details};
+            if (isEditing && editingExpense) {
+                database.ref(`expenses/${editingExpense.key}`).set(expenseData);
+                isEditing = false;
+                editingExpense = null;
+            } else {
+                database.ref('expenses').push(expenseData);
+            }
+            clearForm();
+        }
+        function editExpense(key) {
+            const expense = allExpenses.find(exp => exp.key === key);
+            if (!expense) return;
+            document.getElementById('expenseDate').value = expense.date;
+            document.getElementById('expensePrice').value = expense.price;
+            document.getElementById('expenseDetails').value = expense.details;
+            isEditing = true;
+            editingExpense = expense;
+            addSection.classList.add('show');
+            addSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        function clearForm() {
+            document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
             document.getElementById('expensePrice').value = '';
             document.getElementById('expenseDetails').value = '';
-        }
-        function editExpense(date, price, details) {
-            if (confirm('Are you sure you want to edit this expense?')) {
-                document.getElementById('expenseDate').value = date;
-                document.getElementById('expensePrice').value = price;
-                document.getElementById('expenseDetails').value = details;
-              deleteExpense(date, price, details);
-              showExpensesInput();
+            if (!searchInput.value.trim()) {
+                addSection.classList.remove('show');
             }
         }
-        function deleteExpense(date, price, details) {
-            const expenseRef = database.ref('expenses');
-            expenseRef.on('value', (snapshot) => {
-                snapshot.forEach((childSnapshot) => {
-                    const expense = childSnapshot.val();
-                    if (expense.date === date && expense.price === price && expense.details === details) {
-                        childSnapshot.ref.remove();
-                    }
-                });
-            });
-        }
-      setTimeout(filterData, 3000);
-      filterData();
     </script>
 </body>
 </html>
