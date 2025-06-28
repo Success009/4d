@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Courier Calculator - NPR</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #000; color: #fff; padding: 20px; min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 2.5rem; font-weight: 900; margin-bottom: 5px; }
+        .header p { color: #888; font-size: 0.9rem; }
+        .calc { background: #111; border: 1px solid #333; border-radius: 12px; padding: 25px; margin-bottom: 20px; }
+        .inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .input-group label { display: block; margin-bottom: 5px; font-size: 0.85rem; color: #ccc; font-weight: 600; }
+        input, select { width: 100%; padding: 10px; background: #000; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 0.9rem; }
+        input:focus, select:focus { outline: none; border-color: #fff; }
+        .btn { background: #fff; color: #000; border: none; padding: 12px; border-radius: 6px; font-weight: 700; cursor: pointer; width: 100%; font-size: 1rem; }
+        .btn:hover { background: #ddd; }
+        .results { display: grid; gap: 15px; }
+        .card { background: #111; border: 1px solid #333; border-radius: 8px; padding: 20px; position: relative; }
+        .card.best { border-color: #fff; background: #1a1a1a; }
+        .card.best::before { content: "BEST"; position: absolute; top: -8px; right: 15px; background: #fff; color: #000; padding: 2px 8px; font-size: 0.7rem; font-weight: 900; border-radius: 3px; }
+        .company { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; }
+        .rate-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 8px 0; border-bottom: 1px solid #222; }
+        .rate-row:last-child { border-bottom: none; }
+        .label { color: #888; font-size: 0.85rem; }
+        .value { font-weight: 600; }
+        .final { font-size: 1.1rem; color: #fff; }
+        .profit { background: #333; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; }
+        .no-results { text-align: center; color: #666; padding: 40px; font-style: italic; }
+        @media (max-width: 600px) {
+            .inputs { grid-template-columns: 1fr; }
+            .header h1 { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 COURIER CALC</h1>
+            <p>Nepal Rupees Rate Calculator</p>
+        </div>
+        
+        <div class="calc">
+            <div class="inputs">
+                <div class="input-group">
+                    <label>Weight (KG)</label>
+                    <input type="number" id="weight" step="0.1" min="0.1" placeholder="0.5">
+                </div>
+                <div class="input-group">
+                    <label>Destination</label>
+                    <select id="destination">
+                        <option value="">Select Destination</option>
+                        <option value="DUBAI">Dubai</option>
+                        <option value="QATAR">Qatar</option>
+                        <option value="KUWAIT">Kuwait/Oman/Saudi/Bahrain</option>
+                        <option value="BANGLADESH">Bangladesh/Pakistan/Bhutan</option>
+                        <option value="UK">United Kingdom</option>
+                        <option value="USA">USA (via UK FedEx)</option>
+                        <option value="AUSTRALIA">Australia</option>
+                        <option value="CANADA">Canada</option>
+                        <option value="GERMANY">Germany</option>
+                        <option value="INDIA">India</option>
+                        <option value="SINGAPORE">Singapore</option>
+                        <option value="HONGKONG">Hong Kong</option>
+                        <option value="MALAYSIA">Malaysia</option>
+                        <option value="THAILAND">Thailand</option>
+                        <option value="JAPAN">Japan</option>
+                        <option value="CHINA">China</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Type</label>
+                    <select id="type">
+                        <option value="NON-DOC">Non-Documents</option>
+                        <option value="DOC">Documents</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn" onclick="calc()">CALCULATE RATES</button>
+        </div>
+        
+        <div id="results" class="results"></div>
+    </div>
+
+    <script>
+        const data = {
+            IDEAL: {
+                name: "IDEAL Express",
+                rates: {
+                    DUBAI: [1800,2200,2600,3000,3500,3800,4000,4300,4600,5100,5500,5800,6100,6500,6700,7000,7300,7500,7700,8000],
+                    QATAR: [3000,3600,4300,5100,5700,6400,7100,7700,8400,9000,9600,10300,11000,11600,12300,13000,13600,14300,15000,15600],
+                    KUWAIT: [2400,2900,3400,3900,4400,4900,5300,5800,6300,6800,7100,7500,7700,8000,8300,8800,9200,9500,9900,12000],
+                    BANGLADESH: [2500,3000,3500,4100,4500,5100,5500,5800,6300,7000,7300,7800,8200,8500,8900,9200,9600,10100,10500,11000],
+                    UK: [2300,2500,3100,3300,3600,3900,4400,4700,5200,5700,5700,6300,6900,7200,7600,8000,8500,9000,9600,10000],
+                    USA: [3000,4000,4500,5200,5500,6000,6500,7000,7500,7500,8000,8500,9000,9500,9700,10500,11000,12000,12500,13000],
+                    AUSTRALIA: [2400,2800,3350,3900,4500,5000,5550,6100,6650,7000,7550,8100,8850,9100,9950,9800,10130,10500,11000,11000],
+                    CANADA: [2600,3200,3800,4400,5000,5400,5800,6200,6500,6900,7300,7600,8200,8600,9000,9400,9800,10300,10900,11500],
+                    GERMANY: [2600,3000,3400,3800,4200,4800,5200,5600,6000,6300,6600,7000,7300,7600,8000,8300,8600,9000,9300,9600]
+                },
+                addon: { "10.5-19": 575, "20-45": 500, "46-71": 450, "72-100": 400 }
+            },
+            EXPORT: {
+                name: "IDEAL Export",
+                rates: {
+                    INDIA: { DOC: [500,600,1000,1000,1500], NON: [600,600,1000,1200,1500,1700,2000,2200,2200] },
+                    SINGAPORE: { DOC: [1540,1870,2310,2530,2860], NON: [1650,1980,2420,2860,3300,3520,3850,4290,4620] },
+                    HONGKONG: { DOC: [1540,1870,2310,2530,2860], NON: [1650,1980,2420,2860,3300,3520,3850,4290,4620] },
+                    MALAYSIA: { DOC: [1540,1980,2376,2904,3520], NON: [1760,2200,2310,3080,3630,3850,4290,4840,5280] },
+                    THAILAND: { DOC: [1760,2310,2860,3300,3850], NON: [1870,2420,2970,3300,3850,4290,4620,5170,5500] },
+                    JAPAN: { DOC: [2090,2640,3300,3960,4620], NON: [2750,3080,3300,3850,4180,4510,4950,5280,5720] },
+                    CHINA: { DOC: [1760,2200,2420,2640,3080], NON: [2200,2860,3190,3520,3850,4070,4400,4730,5170] }
+                },
+                addon: { "+5": 500, "+10": 500, "+20": 500 }
+            },
+            JET: {
+                name: "Jet Speed",
+                rates: {
+                    UK: [2000,2300,2530,2875,3450,3680,4140,4370,4830,5290,5635,5750,5980,6670,6900,7475,7935,8280,8970,9430],
+                    AUSTRALIA: [2600,2900,3300,3970,4232,4761,5025,5554,6080,6480,6700,6877,7670,7935,8600,9125,9522,10315,10844,12650],
+                    USA: [2900,3450,3900,4255,4830,5290,5864,6325,6670,6900,7360,8050,8855,9430,9890,10465,10925,11615,12075,12650],
+                    CANADA: [2875,3565,4255,4945,5635,6095,6555,7015,7360,7820,8280,8625,9315,9775,10235,10695,11155,11730,12420,13110]
+                },
+                addon: { "10.5-20": 550, "21-45": 470, "46-71": 470, "72-100": 460 }
+            }
+        };
+
+        function getRate(company, dest, weight, type) {
+            const c = data[company];
+            if (!c || !c.rates[dest]) return null;
+            
+            let rate = 0;
+            if (weight <= 10) {
+                const idx = Math.ceil(weight * 2) - 1;
+                if (company === 'EXPORT') {
+                    const rates = type === 'DOC' ? c.rates[dest].DOC : c.rates[dest].NON;
+                    rate = rates[Math.min(idx, rates.length - 1)];
+                } else {
+                    rate = c.rates[dest][Math.min(idx, c.rates[dest].length - 1)];
+                }
+            } else {
+                let baseRate;
+                if (company === 'EXPORT') {
+                    const rates = type === 'DOC' ? c.rates[dest].DOC : c.rates[dest].NON;
+                    baseRate = rates[rates.length - 1];
+                } else {
+                    baseRate = c.rates[dest][c.rates[dest].length - 1];
+                }
+                
+                const extra = weight - 10;
+                let addon = 0;
+                if (weight <= 20) addon = c.addon["10.5-19"] || c.addon["+5"] || 550;
+                else if (weight <= 45) addon = c.addon["20-45"] || c.addon["+10"] || 500;
+                else if (weight <= 71) addon = c.addon["46-71"] || c.addon["+20"] || 450;
+                else addon = c.addon["72-100"] || 400;
+                
+                rate = baseRate + (extra * addon);
+            }
+            
+            // Convert USD to NPR for export rates (except India)
+            if (company === 'EXPORT' && dest !== 'INDIA') {
+                rate = rate * 110; // Approximate USD to NPR conversion
+            }
+            
+            return rate;
+        }
+
+        function calc() {
+            const weight = parseFloat(document.getElementById('weight').value);
+            const dest = document.getElementById('destination').value;
+            const type = document.getElementById('type').value;
+            const resultsDiv = document.getElementById('results');
+
+            if (!weight || !dest) {
+                resultsDiv.innerHTML = '<div class="no-results">Enter weight and select destination</div>';
+                return;
+            }
+
+            const results = [];
+            const profit = weight >= 20 ? 0.10 : 0.15;
+
+            Object.keys(data).forEach(company => {
+                const rate = getRate(company, dest, weight, type);
+                if (rate && rate > 0) {
+                    const final = rate * (1 + profit);
+                    results.push({
+                        company: data[company].name,
+                        base: rate,
+                        final: final,
+                        profit: Math.round(profit * 100)
+                    });
+                }
+            });
+
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="no-results">No rates available</div>';
+                return;
+            }
+
+            results.sort((a, b) => a.final - b.final);
+            
+            let html = '';
+            results.forEach((r, i) => {
+                html += `
+                    <div class="card ${i === 0 ? 'best' : ''}">
+                        <div class="company">${r.company}</div>
+                        <div class="rate-row">
+                            <span class="label">Base Rate</span>
+                            <span class="value">₨ ${r.base.toLocaleString('en-NP', {maximumFractionDigits: 0})}</span>
+                        </div>
+                        <div class="rate-row">
+                            <span class="label">Profit</span>
+                            <span class="profit">${r.profit}%</span>
+                        </div>
+                        <div class="rate-row">
+                            <span class="label">Final Rate</span>
+                            <span class="value final">₨ ${r.final.toLocaleString('en-NP', {maximumFractionDigits: 0})}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            resultsDiv.innerHTML = html;
+        }
+
+        document.getElementById('weight').addEventListener('input', calc);
+        document.getElementById('destination').addEventListener('change', calc);
+        document.getElementById('type').addEventListener('change', calc);
+    </script>
+</body>
+</html>
