@@ -294,7 +294,7 @@
             ? `<a href="https://shipglobal.au/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
             : tn_trim.startsWith('FFC')
               ? `<a href="https://www.firstflightcanada.com/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
-              : `<a href="https://www.aftership.com/track/${tn_trim}" target="_blank">${highlightText(tn_trim)}</a>`;
+              : `<a href="https://publictrackingpage.aftership.com/${tn_trim}" target="_blank">${highlightText(tn_trim)}</a>`;
         }).join(', ');
         packetDiv.innerHTML = `
           <p>Rec NO: ${highlightText(packet.recNo)}</p>
