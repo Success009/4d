@@ -4,21 +4,215 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NepseAlpha Stock Predictor</title>
+    
     <!-- Google Fonts for a modern look -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- Main Stylesheet -->
-    <link rel="stylesheet" href="style.css">
+    
     <!-- ApexCharts Library for interactive charts -->
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg-color: #ffffff;
+            --primary-text-color: #1c1e21;
+            --secondary-text-color: #606770;
+            --accent-color: #0d6efd;
+            --accent-color-hover: #0b5ed7;
+            --border-color: #e0e0e0;
+            --success-color: #198754;
+            --danger-color: #dc3545;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --border-radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--primary-text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-container {
+            display: flex;
+            width: 100%;
+            max-width: 1600px;
+            height: 90vh;
+            max-height: 900px;
+            gap: 24px;
+        }
+
+        .sidebar {
+            flex: 0 0 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+        }
+
+        .card {
+            background-color: var(--card-bg-color);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+        }
+
+        .sidebar-header {
+            text-align: center;
+        }
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .sidebar-header p {
+            margin: 4px 0 0;
+            color: var(--secondary-text-color);
+            font-size: 14px;
+        }
+
+        .controls h3, .analysis-results h3 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+            display: block;
+        }
+        #company-select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #fff;
+        }
+
+        .btn-analyze {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            background-color: var(--accent-color);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .btn-analyze:hover:not(:disabled) {
+            background-color: var(--accent-color-hover);
+            transform: translateY(-2px);
+        }
+        .btn-analyze:disabled {
+            background-color: #ced4da;
+            cursor: not-allowed;
+        }
+
+        .analysis-results {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .analysis-item {
+            margin-bottom: 16px;
+        }
+        .analysis-item strong {
+            font-size: 14px;
+            text-transform: capitalize;
+        }
+        .prediction-line {
+            font-weight: 600;
+            font-size: 18px;
+        }
+        .prediction-line .up { color: var(--success-color); }
+        .prediction-line .down { color: var(--danger-color); }
+        .justification {
+            font-size: 12px;
+            color: var(--secondary-text-color);
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .chart-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        #stock-chart {
+            flex-grow: 1;
+        }
+        #chart-placeholder {
+            margin: auto;
+            font-size: 20px;
+            color: var(--secondary-text-color);
+            text-align: center;
+        }
+
+        /* Loader Styles */
+        .hidden {
+            display: none !important;
+        }
+        #loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.3s;
+        }
+        .loader {
+            border: 6px solid var(--bg-color);
+            border-top: 6px solid var(--accent-color);
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+        }
+        #loader-text {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
 
-    <!-- Loading Overlay for a smooth user experience -->
+    <!-- Loading Overlay -->
     <div id="loader-overlay">
         <div class="loader"></div>
-        <p id="loader-text">Loading company list...</p>
+        <p id="loader-text">Loading company data...</p>
     </div>
 
     <div class="main-container">
@@ -58,8 +252,336 @@
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
-    <!-- Your custom application script -->
-    <script src="script.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- CONFIGURATION ---
+            const firebaseConfig = {
+                apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
+                authDomain: "d-data-storage-399801.firebaseapp.com",
+                databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
+                projectId: "d-data-storage-399801",
+                storageBucket: "d-data-storage-399801.appspot.com",
+                messagingSenderId: "515303559494",
+                appId: "1:515303559494:web:f108f881e01ee3ddec9547",
+                measurementId: "G-BECRQ4T8BP"
+            };
+
+            const GEMINI_API_KEY = 'AIzaSyBqopZ5Q_RKyzYYMI-LmcbSaJwONy16TzU';
+            const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+
+            // --- DOM ELEMENT REFERENCES ---
+            const companySelect = document.getElementById('company-select');
+            const analyzeBtn = document.getElementById('analyze-btn');
+            const chartContainer = document.getElementById('stock-chart');
+            const chartPlaceholder = document.getElementById('chart-placeholder');
+            const aiAnalysisContainer = document.getElementById('ai-analysis-container');
+            const aiAnalysisContent = document.getElementById('ai-analysis-content');
+            const loaderOverlay = document.getElementById('loader-overlay');
+            const loaderText = document.getElementById('loader-text');
+
+            let stockChart = null; // To hold the chart instance
+
+            // --- INITIALIZATION ---
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.database();
+            
+            // --- DATA DEPOSIT HANDLER & INITIAL LOAD ---
+            handleDataDeposit().then(loadCompanyList);
+            window.addEventListener('nepseDataDeposited', () => handleDataDeposit().then(loadCompanyList));
+
+            // --- EVENT LISTENERS ---
+            analyzeBtn.addEventListener('click', handleAnalysisRequest);
+
+            // --- CORE FUNCTIONS ---
+            
+            async function handleDataDeposit() {
+                const depositedDataJSON = localStorage.getItem('nepse_alpha_data_deposit');
+                if (!depositedDataJSON) {
+                    console.log("No new data deposit found.");
+                    return;
+                }
+
+                showLoader('New data detected! Uploading to database...');
+                console.log("New data deposit found, processing...");
+
+                try {
+                    const depositedData = JSON.parse(depositedDataJSON);
+                    const uploadPromises = [];
+                    
+                    for (const companySymbol in depositedData) {
+                        const csvText = depositedData[companySymbol];
+                        console.log(`Uploading ${companySymbol} to Firebase...`);
+                        // Create a promise for each upload
+                        uploadPromises.push(db.ref(`nepse/data/${companySymbol}`).set(csvText));
+                    }
+
+                    // Wait for all uploads to complete
+                    await Promise.all(uploadPromises);
+
+                    console.log("SUCCESS: All new data has been uploaded to Firebase.");
+                    alert("New company data has been successfully collected and saved to the database!");
+                    
+                    localStorage.removeItem('nepse_alpha_data_deposit');
+                } catch (error) {
+                    console.error("Failed to process deposited data:", error);
+                    alert("There was an error processing the newly collected data.");
+                } finally {
+                    // We don't reload, we just re-run loadCompanyList after this promise resolves.
+                }
+            }
+            
+            async function loadCompanyList() {
+                showLoader('Loading company list...');
+                try {
+                    const snapshot = await db.ref('nepse/data').once('value');
+                    const data = snapshot.val();
+                    if (data) {
+                        const companies = Object.keys(data).sort();
+                        companySelect.innerHTML = companies.map(c => `<option value="${c}">${c}</option>`).join('');
+                        companySelect.disabled = false;
+                        analyzeBtn.disabled = false;
+                    } else {
+                        companySelect.innerHTML = '<option>No data in database</option>';
+                    }
+                } catch (error) {
+                    console.error("Error loading company list from Firebase:", error);
+                    companySelect.innerHTML = '<option>Error loading data</option>';
+                } finally {
+                    hideLoader();
+                }
+            }
+
+            async function handleAnalysisRequest() {
+                const companySymbol = companySelect.value;
+                if (!companySymbol) return;
+
+                showLoader('Checking for recent analysis...');
+                aiAnalysisContainer.classList.add('hidden');
+                analyzeBtn.disabled = true;
+
+                try {
+                    const analysisSnapshot = await db.ref(`nepse/analyses/${companySymbol}`).once('value');
+                    const cachedAnalysis = analysisSnapshot.val();
+                    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+
+                    let analysisData;
+                    if (cachedAnalysis && cachedAnalysis.timestamp > oneDayAgo) {
+                        console.log("Using fresh analysis from Firebase cache.");
+                        analysisData = cachedAnalysis.analysisData;
+                    } else {
+                        console.log("Stale or no analysis found. Generating new one.");
+                        analysisData = await generateAndSaveAnalysis(companySymbol);
+                    }
+                    
+                    showLoader('Loading historical data...');
+                    const csvSnapshot = await db.ref(`nepse/data/${companySymbol}`).once('value');
+                    const csvData = csvSnapshot.val();
+                    if (!csvData) throw new Error("Could not find historical data for this company.");
+
+                    const historicalData = parseCSV(csvData);
+                    renderChartAndAnalysis(historicalData, analysisData);
+                    
+                } catch (error) {
+                    console.error("Analysis failed:", error);
+                    chartPlaceholder.textContent = `An error occurred: ${error.message}`;
+                    chartPlaceholder.classList.remove('hidden');
+                    if (stockChart) stockChart.destroy();
+                    stockChart = null;
+                } finally {
+                    hideLoader();
+                    analyzeBtn.disabled = false;
+                }
+            }
+
+            async function generateAndSaveAnalysis(companySymbol) {
+                showLoader('Fetching historical data...');
+                const csvSnapshot = await db.ref(`nepse/data/${companySymbol}`).once('value');
+                const csvData = csvSnapshot.val();
+                if (!csvData) throw new Error("No historical data to analyze.");
+
+                const historicalData = parseCSV(csvData);
+                if(historicalData.length < 20) throw new Error("Insufficient data for a reliable analysis.");
+
+                showLoader('Analyzing with AI (this may take a moment)...');
+                const aiResponse = await callGeminiAPI(historicalData);
+                
+                await db.ref(`nepse/analyses/${companySymbol}`).set({
+                    analysisData: aiResponse,
+                    timestamp: Date.now()
+                });
+                console.log("New analysis saved to Firebase.");
+                return aiResponse;
+            }
+
+            function parseCSV(csvText) {
+                const lines = csvText.trim().split('\n');
+                const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+                const dateIndex = header.indexOf('Date');
+                const closeIndex = header.indexOf('Close');
+                
+                if (dateIndex === -1 || closeIndex === -1) {
+                    throw new Error("CSV file is missing 'Date' or 'Close' column.");
+                }
+
+                return lines.slice(1).map(line => {
+                    const values = line.split(',');
+                    const date = values[dateIndex].replace(/"/g, '').trim();
+                    const close = parseFloat(values[closeIndex].replace(/"/g, '').trim());
+                    return { x: new Date(date).getTime(), y: close };
+                }).filter(d => d.x && !isNaN(d.y))
+                  .reverse();
+            }
+            
+            async function callGeminiAPI(historicalData) {
+                const latestDataPoint = historicalData[historicalData.length - 1];
+                const latestPrice = latestDataPoint.y;
+                const compactData = historicalData.map(d => `${new Date(d.x).toISOString().split('T')[0]},${d.y}`).join('\n');
+
+                const prompt = `
+                    Analyze the following historical stock data, ending on ${new Date(latestDataPoint.x).toISOString().split('T')[0]} with a closing price of ${latestPrice}.
+                    Provide a detailed future projection and a summary.
+                    
+                    You must respond with ONLY a valid JSON object. Do not include any text, notes, or markdown backticks.
+                    The JSON must have two top-level keys: "projections" and "summary".
+
+                    1. The "projections" key must be an array of objects. Each object represents a future data point and must have two keys: "date" (a future date string in "YYYY-MM-DD" format) and "price" (a numerical prediction). Provide points for approximately 7, 30, 90, 180, and 365 days from the latest data date.
+                    
+                    2. The "summary" key must be an object with keys: "next_week", "next_month", "next_six_months", "next_year". Each of these must be an object with two string keys: "prediction" (e.g., "Bullish trend to ~420.0") and "justification".
+
+                    Example JSON format:
+                    {
+                      "projections": [
+                        { "date": "2025-08-08", "price": 1035.5 },
+                        { "date": "2025-09-01", "price": 1050.0 },
+                        { "date": "2025-11-01", "price": 1080.0 },
+                        { "date": "2026-02-01", "price": 1120.0 },
+                        { "date": "2026-08-01", "price": 1150.0 }
+                      ],
+                      "summary": {
+                        "next_week": { "prediction": "Slightly Up to ~1035.5", "justification": "Continuation of recent positive momentum is expected." },
+                        "next_month": { "prediction": "Bullish to ~1050.0", "justification": "Strong volume supports a continued upward trend for the month." },
+                        "next_six_months": { "prediction": "Strongly Bullish to ~1120.0", "justification": "Fundamental indicators and market cycle suggest significant growth." },
+                        "next_year": { "prediction": "Very Bullish to ~1150.0", "justification": "Long-term historical performance indicates a high probability of reaching this target." }
+                      }
+                    }
+
+                    Historical Data (Date,Close):
+                    \`\`\`
+                    ${compactData}
+                    \`\`\`
+                `;
+
+                const response = await fetch(GEMINI_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        "generationConfig": { "responseMimeType": "application/json" }
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(`API request failed: ${errorBody.error.message}`);
+                }
+                
+                const result = await response.json();
+                const responseText = result.candidates[0].content.parts[0].text;
+                return JSON.parse(responseText);
+            }
+            
+            function renderChartAndAnalysis(historicalData, aiResponse) {
+                aiAnalysisContent.innerHTML = '';
+                Object.entries(aiResponse.summary).forEach(([key, value]) => {
+                    const predClass = value.prediction.toLowerCase().includes('up') || value.prediction.toLowerCase().includes('bullish') ? 'up' : 'down';
+                    const item = document.createElement('div');
+                    item.className = 'analysis-item';
+                    item.innerHTML = `
+                        <strong>${key.replace(/_/g, ' ')}</strong>
+                        <p class="prediction-line ${predClass}">${value.prediction}</p>
+                        <p class="justification">${value.justification}</p>
+                    `;
+                    aiAnalysisContent.appendChild(item);
+                });
+                aiAnalysisContainer.classList.remove('hidden');
+
+                const predictionData = aiResponse.projections.map(p => ({
+                    x: new Date(p.date).getTime(),
+                    y: p.price
+                }));
+
+                const combinedPredictionData = [historicalData[historicalData.length - 1], ...predictionData];
+
+                const options = {
+                    series: [
+                        { name: 'Historical Price', type: 'area', data: historicalData },
+                        { name: 'AI Prediction', type: 'line', data: combinedPredictionData }
+                    ],
+                    chart: {
+                        height: '100%',
+                        type: 'line',
+                        toolbar: { show: true, tools: { download: true, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } },
+                        zoom: { enabled: true },
+                        animations: { enabled: true, easing: 'easeinout', speed: 800 }
+                    },
+                    colors: ['#0d6efd', '#198754'],
+                    stroke: {
+                        width: [3, 4],
+                        curve: 'smooth',
+                        dashArray: [0, 8]
+                    },
+                    fill: {
+                        type: 'gradient',
+                        gradient: {
+                            shadeIntensity: 1,
+                            opacityFrom: 0.7,
+                            opacityTo: 0.1,
+                            stops: [0, 100]
+                        }
+                    },
+                    xaxis: {
+                        type: 'datetime',
+                        labels: { datetimeUTC: false, style: { colors: '#606770' } }
+                    },
+                    yaxis: {
+                        labels: {
+                            formatter: (val) => val ? val.toFixed(2) : '0',
+                            style: { colors: '#606770' }
+                        }
+                    },
+                    tooltip: {
+                        x: { format: 'dd MMM yyyy' },
+                        theme: 'light'
+                    },
+                    legend: {
+                        position: 'top',
+                        horizontalAlign: 'left'
+                    },
+                    grid: {
+                        borderColor: '#e0e0e0',
+                        strokeDashArray: 4
+                    }
+                };
+
+                chartPlaceholder.classList.add('hidden');
+                if (stockChart) {
+                    stockChart.destroy();
+                }
+                stockChart = new ApexCharts(document.querySelector("#stock-chart"), options);
+                stockChart.render();
+            }
+
+            function showLoader(text) {
+                loaderText.textContent = text;
+                loaderOverlay.classList.remove('hidden');
+            }
+
+            function hideLoader() {
+                loaderOverlay.classList.add('hidden');
+            }
+        });
+    </script>
 
 </body>
 </html>
