@@ -1,0 +1,292 @@
+document.addEventListener('DOMContentLoaded', () => {
+    // --- CONFIGURATION ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
+        authDomain: "d-data-storage-399801.firebaseapp.com",
+        databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
+        projectId: "d-data-storage-399801",
+        storageBucket: "d-data-storage-399801.appspot.com",
+        messagingSenderId: "515303559494",
+        appId: "1:515303559494:web:f108f881e01ee3ddec9547",
+        measurementId: "G-BECRQ4T8BP"
+    };
+
+    const GEMINI_API_KEY = 'AIzaSyBqopZ5Q_RKyzYYMI-LmcbSaJwONy16TzU';
+    const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+
+    // --- DOM ELEMENT REFERENCES ---
+    const companySelect = document.getElementById('company-select');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const chartContainer = document.getElementById('stock-chart');
+    const chartPlaceholder = document.getElementById('chart-placeholder');
+    const aiAnalysisContainer = document.getElementById('ai-analysis-container');
+    const aiAnalysisContent = document.getElementById('ai-analysis-content');
+    const loaderOverlay = document.getElementById('loader-overlay');
+    const loaderText = document.getElementById('loader-text');
+
+    let stockChart = null; // To hold the chart instance
+
+    // --- INITIALIZATION ---
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    loadCompanyList();
+
+    // --- EVENT LISTENERS ---
+    analyzeBtn.addEventListener('click', handleAnalysisRequest);
+
+    // --- CORE FUNCTIONS ---
+
+    async function loadCompanyList() {
+        showLoader('Loading company list...');
+        try {
+            const snapshot = await db.ref('nepse/data').once('value');
+            const data = snapshot.val();
+            if (data) {
+                const companies = Object.keys(data).sort();
+                companySelect.innerHTML = companies.map(c => `<option value="${c}">${c}</option>`).join('');
+                companySelect.disabled = false;
+                analyzeBtn.disabled = false;
+            } else {
+                companySelect.innerHTML = '<option>No data in database</option>';
+            }
+        } catch (error) {
+            console.error("Error loading company list from Firebase:", error);
+            companySelect.innerHTML = '<option>Error loading data</option>';
+        } finally {
+            hideLoader();
+        }
+    }
+
+    async function handleAnalysisRequest() {
+        const companySymbol = companySelect.value;
+        if (!companySymbol) return;
+
+        showLoader('Checking for recent analysis...');
+        aiAnalysisContainer.classList.add('hidden');
+        analyzeBtn.disabled = true;
+
+        try {
+            // Check Firebase for a recent, cached analysis to save API calls
+            const analysisSnapshot = await db.ref(`nepse/analyses/${companySymbol}`).once('value');
+            const cachedAnalysis = analysisSnapshot.val();
+            const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+            let analysisData;
+            if (cachedAnalysis && cachedAnalysis.timestamp > oneDayAgo) {
+                console.log("Using fresh analysis from Firebase cache.");
+                analysisData = cachedAnalysis.analysisData;
+            } else {
+                console.log("Stale or no analysis found. Generating new one.");
+                analysisData = await generateAndSaveAnalysis(companySymbol);
+            }
+            
+            showLoader('Loading historical data...');
+            const csvSnapshot = await db.ref(`nepse/data/${companySymbol}`).once('value');
+            const csvData = csvSnapshot.val();
+            if (!csvData) throw new Error("Could not find historical data for this company.");
+
+            const historicalData = parseCSV(csvData);
+            renderChartAndAnalysis(historicalData, analysisData);
+            
+        } catch (error)
+        {
+            console.error("Analysis failed:", error);
+            chartPlaceholder.textContent = `An error occurred: ${error.message}`;
+            chartPlaceholder.classList.remove('hidden');
+            if (stockChart) stockChart.destroy();
+            stockChart = null;
+        } finally {
+            hideLoader();
+            analyzeBtn.disabled = false;
+        }
+    }
+
+    async function generateAndSaveAnalysis(companySymbol) {
+        showLoader('Fetching historical data...');
+        const csvSnapshot = await db.ref(`nepse/data/${companySymbol}`).once('value');
+        const csvData = csvSnapshot.val();
+        if (!csvData) throw new Error("No historical data to analyze.");
+
+        const historicalData = parseCSV(csvData);
+        if(historicalData.length < 20) throw new Error("Insufficient data for a reliable analysis.");
+
+        showLoader('Analyzing with AI (this may take a moment)...');
+        const aiResponse = await callGeminiAPI(historicalData);
+        
+        // Save the new analysis to Firebase with a timestamp
+        await db.ref(`nepse/analyses/${companySymbol}`).set({
+            analysisData: aiResponse,
+            timestamp: Date.now()
+        });
+        console.log("New analysis saved to Firebase.");
+        return aiResponse;
+    }
+
+    function parseCSV(csvText) {
+        const lines = csvText.trim().split('\n');
+        const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+        const dateIndex = header.indexOf('Date');
+        const closeIndex = header.indexOf('Close');
+        
+        if (dateIndex === -1 || closeIndex === -1) {
+            throw new Error("CSV file is missing 'Date' or 'Close' column.");
+        }
+
+        return lines.slice(1).map(line => {
+            const values = line.split(',');
+            const date = values[dateIndex].replace(/"/g, '').trim();
+            const close = parseFloat(values[closeIndex].replace(/"/g, '').trim());
+            return { x: new Date(date).getTime(), y: close }; // Use timestamps for better charting
+        }).filter(d => d.x && !isNaN(d.y))
+          .reverse();
+    }
+    
+    async function callGeminiAPI(historicalData) {
+        const latestDataPoint = historicalData[historicalData.length - 1];
+        const latestPrice = latestDataPoint.y;
+        
+        const compactData = historicalData.map(d => `${new Date(d.x).toISOString().split('T')[0]},${d.y}`).join('\n');
+
+        const prompt = `
+            Analyze the following historical stock data, ending on ${new Date(latestDataPoint.x).toISOString().split('T')[0]} with a closing price of ${latestPrice}.
+            Provide a detailed future projection and a summary.
+            
+            You must respond with ONLY a valid JSON object. Do not include any text, notes, or markdown backticks.
+            The JSON must have two top-level keys: "projections" and "summary".
+
+            1. The "projections" key must be an array of objects. Each object represents a future data point and must have two keys: "date" (a future date string in "YYYY-MM-DD" format) and "price" (a numerical prediction). Provide points for approximately 7, 30, 90, 180, and 365 days from the latest data date.
+            
+            2. The "summary" key must be an object with keys: "next_week", "next_month", "next_six_months", "next_year". Each of these must be an object with two string keys: "prediction" (e.g., "Bullish trend to ~420.0") and "justification".
+
+            Example JSON format:
+            {
+              "projections": [
+                { "date": "2025-08-08", "price": 1035.5 },
+                { "date": "2025-09-01", "price": 1050.0 },
+                { "date": "2025-11-01", "price": 1080.0 },
+                { "date": "2026-02-01", "price": 1120.0 },
+                { "date": "2026-08-01", "price": 1150.0 }
+              ],
+              "summary": {
+                "next_week": { "prediction": "Slightly Up to ~1035.5", "justification": "Continuation of recent positive momentum is expected." },
+                "next_month": { "prediction": "Bullish to ~1050.0", "justification": "Strong volume supports a continued upward trend for the month." },
+                "next_six_months": { "prediction": "Strongly Bullish to ~1120.0", "justification": "Fundamental indicators and market cycle suggest significant growth." },
+                "next_year": { "prediction": "Very Bullish to ~1150.0", "justification": "Long-term historical performance indicates a high probability of reaching this target." }
+              }
+            }
+
+            Historical Data (Date,Close):
+            \`\`\`
+            ${compactData}
+            \`\`\`
+        `;
+
+        const response = await fetch(GEMINI_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                "generationConfig": { "responseMimeType": "application/json" }
+            })
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.json();
+            throw new Error(`API request failed: ${errorBody.error.message}`);
+        }
+        
+        const result = await response.json();
+        const responseText = result.candidates[0].content.parts[0].text;
+        return JSON.parse(responseText);
+    }
+    
+    function renderChartAndAnalysis(historicalData, aiResponse) {
+        aiAnalysisContent.innerHTML = '';
+        Object.entries(aiResponse.summary).forEach(([key, value]) => {
+            const predClass = value.prediction.toLowerCase().includes('up') || value.prediction.toLowerCase().includes('bullish') ? 'up' : 'down';
+            const item = document.createElement('div');
+            item.className = 'analysis-item';
+            item.innerHTML = `
+                <strong>${key.replace(/_/g, ' ')}</strong>
+                <p class="prediction-line ${predClass}">${value.prediction}</p>
+                <p class="justification">${value.justification}</p>
+            `;
+            aiAnalysisContent.appendChild(item);
+        });
+        aiAnalysisContainer.classList.remove('hidden');
+
+        const predictionData = aiResponse.projections.map(p => ({
+            x: new Date(p.date).getTime(),
+            y: p.price
+        }));
+
+        const combinedPredictionData = [historicalData[historicalData.length - 1], ...predictionData];
+
+        const options = {
+            series: [
+                { name: 'Historical Price', type: 'area', data: historicalData },
+                { name: 'AI Prediction', type: 'line', data: combinedPredictionData }
+            ],
+            chart: {
+                height: '100%',
+                type: 'line',
+                toolbar: { show: true, tools: { download: true, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } },
+                zoom: { enabled: true },
+                animations: { enabled: true, easing: 'easeinout', speed: 800 }
+            },
+            colors: ['#0d6efd', '#198754'],
+            stroke: {
+                width: [3, 4],
+                curve: 'smooth',
+                dashArray: [0, 8]
+            },
+            fill: {
+                type: 'gradient',
+                gradient: {
+                    shadeIntensity: 1,
+                    opacityFrom: 0.7,
+                    opacityTo: 0.1,
+                    stops: [0, 100]
+                }
+            },
+            xaxis: {
+                type: 'datetime',
+                labels: { datetimeUTC: false, style: { colors: '#606770' } }
+            },
+            yaxis: {
+                labels: {
+                    formatter: (val) => val.toFixed(2),
+                    style: { colors: '#606770' }
+                }
+            },
+            tooltip: {
+                x: { format: 'dd MMM yyyy' },
+                theme: 'light'
+            },
+            legend: {
+                position: 'top',
+                horizontalAlign: 'left'
+            },
+            grid: {
+                borderColor: '#e0e0e0',
+                strokeDashArray: 4
+            }
+        };
+
+        chartPlaceholder.classList.add('hidden');
+        if (stockChart) {
+            stockChart.destroy();
+        }
+        stockChart = new ApexCharts(document.querySelector("#stock-chart"), options);
+        stockChart.render();
+    }
+
+    function showLoader(text) {
+        loaderText.textContent = text;
+        loaderOverlay.classList.remove('hidden');
+    }
+
+    function hideLoader() {
+        loaderOverlay.classList.add('hidden');
+    }
+});

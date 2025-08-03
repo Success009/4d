@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NepseAlpha Stock Predictor</title>
+    <!-- Google Fonts for a modern look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+    <!-- ApexCharts Library for interactive charts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+
+    <!-- Loading Overlay for a smooth user experience -->
+    <div id="loader-overlay">
+        <div class="loader"></div>
+        <p id="loader-text">Loading company list...</p>
+    </div>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Stock Predictor</h2>
+                <p>AI-Powered Analysis</p>
+            </div>
+            <div class="controls card">
+                <h3>Controls</h3>
+                <div class="form-group">
+                    <label for="company-select">Select Company</label>
+                    <select id="company-select" disabled>
+                        <option>Loading from database...</option>
+                    </select>
+                </div>
+                <button id="analyze-btn" class="btn-analyze" disabled>Analyze with AI</button>
+            </div>
+            <div id="ai-analysis-container" class="analysis-results card hidden">
+                <h3>AI Analysis Summary</h3>
+                <div id="ai-analysis-content">
+                    <!-- AI text results will be rendered here -->
+                </div>
+            </div>
+        </aside>
+
+        <main class="content-area">
+            <div class="chart-container card">
+                <div id="stock-chart">
+                    <!-- The main interactive chart will be rendered here -->
+                </div>
+                <p id="chart-placeholder">Please select a company to begin.</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    <!-- Your custom application script -->
+    <script src="script.js"></script>
+
+</body>
+</html>
