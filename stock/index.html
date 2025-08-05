@@ -249,15 +249,22 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // ===================================================================
-            // === EXTENSION ID HAS BEEN ADDED AS REQUESTED ===
-            // ===================================================================
-            const EXTENSION_ID = "cebjgcgohdpgjadodkcgekdpengonecm"; 
-            // ===================================================================
+            // --- CONFIGURATION ---
+            const firebaseConfig = {
+                apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
+                authDomain: "d-data-storage-399801.firebaseapp.com",
+                databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
+                projectId: "d-data-storage-399801",
+                storageBucket: "d-data-storage-399801.appspot.com",
+                messagingSenderId: "515303559494",
+                appId: "1:515303559494:web:f108f881e01ee3ddec9547",
+                measurementId: "G-BECRQ4T8BP"
+            };
 
-            const firebaseConfig = { apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI", authDomain: "d-data-storage-399801.firebaseapp.com", databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com", projectId: "d-data-storage-399801", storageBucket: "d-data-storage-399801.appspot.com", messagingSenderId: "515303559494", appId: "1:515303559494:web:f108f881e01ee3ddec9547", measurementId: "G-BECRQ4T8BP" };
             const GEMINI_API_KEY = 'AIzaSyBqopZ5Q_RKyzYYMI-LmcbSaJwONy16TzU';
             const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+
+            // --- DOM ELEMENT REFERENCES ---
             const companySelect = document.getElementById('company-select');
             const analyzeBtn = document.getElementById('analyze-btn');
             const chartContainer = document.getElementById('stock-chart');
@@ -266,83 +273,63 @@
             const aiAnalysisContent = document.getElementById('ai-analysis-content');
             const loaderOverlay = document.getElementById('loader-overlay');
             const loaderText = document.getElementById('loader-text');
-            let stockChart = null;
 
+            let stockChart = null; // To hold the chart instance
+
+            // --- INITIALIZATION ---
             firebase.initializeApp(firebaseConfig);
             const db = firebase.database();
             
-            handleDataDepositRequest();
+            // --- DATA DEPOSIT HANDLER & INITIAL LOAD ---
+            window.addEventListener('nepseDataDeposited', handleDataDeposit);
+            
+            // Immediately check for data on load, in case the event was already fired
+            handleDataDeposit(); 
+            
+            // Load existing companies from the database
             loadCompanyList(); 
 
+            // --- EVENT LISTENERS ---
             analyzeBtn.addEventListener('click', handleAnalysisRequest);
-            window.addEventListener('nepseDataDeposited', () => handleDataDepositFromLocalStorage().then(loadCompanyList));
-
-
+            
             // --- CORE FUNCTIONS ---
             
-            async function handleDataDepositRequest() {
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.get('deposit') !== 'true') {
-                    console.log("[Website] No deposit request found in URL.");
-                    return;
-                }
-
-                console.log("[Website] Deposit request detected. Sending message to extension ID:", EXTENSION_ID);
-                showLoader('Requesting data from extension...');
-
-                if (!chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
-                    alert("This page must be opened by the NepseAlpha extension to deposit data.");
-                    hideLoader();
-                    return;
-                }
-
-                chrome.runtime.sendMessage(EXTENSION_ID, { action: 'request-data-for-deposit' }, async (response) => {
-                    if (chrome.runtime.lastError) {
-                        console.error("[Website] Error communicating with extension:", chrome.runtime.lastError.message);
-                        alert("Could not connect to the data collection extension. Please ensure it is installed and enabled.");
-                        hideLoader();
-                        return;
-                    }
-
-                    if (response && response.success) {
-                        console.log(`[Website] Received data for ${Object.keys(response.data).length} companies.`);
-                        showLoader('Uploading new data to database...');
-                        try {
-                            const uploadPromises = Object.entries(response.data).map(([symbol, csv]) => 
-                                db.ref(`nepse/data/${symbol}`).set(csv)
-                            );
-                            await Promise.all(uploadPromises);
-                            
-                            alert("New company data has been successfully deposited and saved to the database!");
-                            window.history.replaceState({}, document.title, window.location.pathname);
-                            await loadCompanyList();
-                        } catch (error) {
-                            console.error("Error saving deposited data:", error);
-                            alert("An error occurred while saving the new data.");
-                        } finally {
-                            hideLoader();
-                        }
-                    } else {
-                        console.error("[Website] Extension reported an error or had no data:", response?.error);
-                        alert("The extension had no new data to deposit.");
-                        hideLoader();
-                    }
-                });
-            }
-
-            async function handleDataDepositFromLocalStorage() {
+            async function handleDataDeposit() {
+                console.log("[Website] Checking for newly deposited data in localStorage...");
                 const depositedDataJSON = localStorage.getItem('nepse_alpha_data_deposit');
-                if (!depositedDataJSON) return;
+                if (!depositedDataJSON) {
+                    console.log("[Website] No new data deposit found.");
+                    return;
+                }
+
                 showLoader('New data detected! Uploading to database...');
+                console.log("[Website] New data deposit found, processing...");
+
                 try {
                     const depositedData = JSON.parse(depositedDataJSON);
-                    const uploadPromises = Object.entries(depositedData).map(([symbol, csv]) => db.ref(`nepse/data/${symbol}`).set(csv));
+                    const uploadPromises = [];
+                    let companyCount = 0;
+                    
+                    for (const companySymbol in depositedData) {
+                        const csvText = depositedData[companySymbol];
+                        console.log(`[Website] Queuing ${companySymbol} for Firebase upload...`);
+                        uploadPromises.push(db.ref(`nepse/data/${companySymbol}`).set(csvText));
+                        companyCount++;
+                    }
+
                     await Promise.all(uploadPromises);
-                    alert("New company data has been successfully saved to the database!");
+                    console.log(`[Website] SUCCESS: All ${companyCount} data blobs have been uploaded to Firebase.`);
+                    alert("New company data has been successfully collected and saved to the database!");
+                    
+                    // IMPORTANT: Clean up localStorage and reload the company list to reflect new data
                     localStorage.removeItem('nepse_alpha_data_deposit');
+                    await loadCompanyList(); 
+
                 } catch (error) {
-                    console.error("Failed to process deposited data from localStorage:", error);
-                    alert("There was an error processing newly collected data.");
+                    console.error("[Website] Failed to process deposited data:", error);
+                    alert("There was an error processing the newly collected data.");
+                } finally {
+                    hideLoader();
                 }
             }
             
@@ -370,13 +357,16 @@
             async function handleAnalysisRequest() {
                 const companySymbol = companySelect.value;
                 if (!companySymbol) return;
+
                 showLoader('Checking for recent analysis...');
                 aiAnalysisContainer.classList.add('hidden');
                 analyzeBtn.disabled = true;
+
                 try {
                     const analysisSnapshot = await db.ref(`nepse/analyses/${companySymbol}`).once('value');
                     const cachedAnalysis = analysisSnapshot.val();
                     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+
                     let analysisData;
                     if (cachedAnalysis && cachedAnalysis.timestamp > oneDayAgo) {
                         console.log("Using fresh analysis from Firebase cache.");
@@ -385,12 +375,15 @@
                         console.log("Stale or no analysis found. Generating new one.");
                         analysisData = await generateAndSaveAnalysis(companySymbol);
                     }
+                    
                     showLoader('Loading historical data...');
                     const csvSnapshot = await db.ref(`nepse/data/${companySymbol}`).once('value');
                     const csvData = csvSnapshot.val();
                     if (!csvData) throw new Error("Could not find historical data for this company.");
+
                     const historicalData = parseCSV(csvData);
                     renderChartAndAnalysis(historicalData, analysisData);
+                    
                 } catch (error) {
                     console.error("Analysis failed:", error);
                     chartPlaceholder.textContent = `An error occurred: ${error.message}`;
@@ -408,10 +401,13 @@
                 const csvSnapshot = await db.ref(`nepse/data/${companySymbol}`).once('value');
                 const csvData = csvSnapshot.val();
                 if (!csvData) throw new Error("No historical data to analyze.");
+
                 const historicalData = parseCSV(csvData);
                 if(historicalData.length < 20) throw new Error("Insufficient data for a reliable analysis.");
+
                 showLoader('Analyzing with AI (this may take a moment)...');
                 const aiResponse = await callGeminiAPI(historicalData);
+                
                 await db.ref(`nepse/analyses/${companySymbol}`).set({
                     analysisData: aiResponse,
                     timestamp: Date.now()
@@ -426,6 +422,7 @@
                 const dateIndex = header.indexOf('Date');
                 const closeIndex = header.indexOf('Close');
                 if (dateIndex === -1 || closeIndex === -1) throw new Error("CSV is missing 'Date' or 'Close' column.");
+
                 return lines.slice(1).map(line => {
                     const values = line.split(',');
                     const date = values[dateIndex].replace(/"/g, '').trim();
@@ -438,6 +435,7 @@
                 const latestDataPoint = historicalData[historicalData.length - 1];
                 const latestPrice = latestDataPoint.y;
                 const compactData = historicalData.map(d => `${new Date(d.x).toISOString().split('T')[0]},${d.y}`).join('\n');
+
                 const prompt = `
                     Analyze the following historical stock data, ending on ${new Date(latestDataPoint.x).toISOString().split('T')[0]} with a closing price of ${latestPrice}. Provide a detailed future projection and a summary. You must respond with ONLY a valid JSON object. Do not include any text, notes, or markdown backticks. The JSON must have two top-level keys: "projections" and "summary".
                     1. The "projections" key must be an array of objects. Each object represents a future data point and must have two keys: "date" (a future date string in "YYYY-MM-DD" format) and "price" (a numerical prediction). Provide points for approximately 7, 30, 90, 180, and 365 days from the latest data date.
@@ -447,15 +445,21 @@
                     ${compactData}
                     \`\`\`
                 `;
+
                 const response = await fetch(GEMINI_API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], "generationConfig": { "responseMimeType": "application/json" } })
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        "generationConfig": { "responseMimeType": "application/json" }
+                    })
                 });
+
                 if (!response.ok) {
                     const errorBody = await response.json();
                     throw new Error(`API request failed: ${errorBody.error.message}`);
                 }
+                
                 const result = await response.json();
                 const responseText = result.candidates[0].content.parts[0].text;
                 return JSON.parse(responseText);
@@ -471,8 +475,10 @@
                     aiAnalysisContent.appendChild(item);
                 });
                 aiAnalysisContainer.classList.remove('hidden');
+
                 const predictionData = aiResponse.projections.map(p => ({ x: new Date(p.date).getTime(), y: p.price }));
                 const combinedPredictionData = [historicalData[historicalData.length - 1], ...predictionData];
+
                 const options = {
                     series: [ { name: 'Historical Price', type: 'area', data: historicalData }, { name: 'AI Prediction', type: 'line', data: combinedPredictionData } ],
                     chart: { height: '100%', type: 'line', toolbar: { show: true }, zoom: { enabled: true }, animations: { enabled: true, easing: 'easeinout', speed: 800 } },
@@ -485,14 +491,21 @@
                     legend: { position: 'top', horizontalAlign: 'left' },
                     grid: { borderColor: '#e0e0e0', strokeDashArray: 4 }
                 };
+
                 chartPlaceholder.classList.add('hidden');
                 if (stockChart) stockChart.destroy();
                 stockChart = new ApexCharts(document.querySelector("#stock-chart"), options);
                 stockChart.render();
             }
 
-            function showLoader(text) { loaderText.textContent = text; loaderOverlay.classList.remove('hidden'); }
-            function hideLoader() { loaderOverlay.classList.add('hidden'); }
+            function showLoader(text) {
+                loaderText.textContent = text;
+                loaderOverlay.classList.remove('hidden');
+            }
+
+            function hideLoader() {
+                loaderOverlay.classList.add('hidden');
+            }
         });
     </script>
 
