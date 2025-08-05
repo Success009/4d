@@ -210,9 +210,9 @@
 <body>
 
     <!-- Loading Overlay -->
-    <div id="loader-overlay">
+    <div id="loader-overlay" class="hidden">
         <div class="loader"></div>
-        <p id="loader-text">Loading company data...</p>
+        <p id="loader-text">Loading...</p>
     </div>
 
     <div class="main-container">
@@ -255,6 +255,13 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // --- IMPORTANT: SET YOUR EXTENSION ID HERE ---
+            // 1. Go to chrome://extensions
+            // 2. Enable "Developer mode"
+            // 3. Find your "NepseAlpha Data Depositor" extension
+            // 4. Copy the ID and paste it below.
+            const EXTENSION_ID = "cebjgcgohdpgjadodkcgekdpengonecm"; 
+
             // --- CONFIGURATION ---
             const firebaseConfig = {
                 apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
@@ -287,47 +294,86 @@
             const db = firebase.database();
             
             // --- DATA DEPOSIT HANDLER & INITIAL LOAD ---
-            handleDataDeposit().then(loadCompanyList);
-            window.addEventListener('nepseDataDeposited', () => handleDataDeposit().then(loadCompanyList));
+            handleDataDepositRequest();
+            loadCompanyList(); 
 
             // --- EVENT LISTENERS ---
             analyzeBtn.addEventListener('click', handleAnalysisRequest);
+            
+            // Listen for the custom event dispatched by the extension's old depositor script (for compatibility)
+            window.addEventListener('nepseDataDeposited', () => handleDataDepositFromLocalStorage().then(loadCompanyList));
+
 
             // --- CORE FUNCTIONS ---
             
-            async function handleDataDeposit() {
-                const depositedDataJSON = localStorage.getItem('nepse_alpha_data_deposit');
-                if (!depositedDataJSON) {
-                    console.log("No new data deposit found.");
+            async function handleDataDepositRequest() {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('deposit') !== 'true') {
+                    console.log("[Website] No deposit request found in URL.");
                     return;
                 }
 
-                showLoader('New data detected! Uploading to database...');
-                console.log("New data deposit found, processing...");
+                console.log("[Website] Deposit request detected. Sending message to extension.");
+                showLoader('Requesting data from extension...');
 
-                try {
-                    const depositedData = JSON.parse(depositedDataJSON);
-                    const uploadPromises = [];
-                    
-                    for (const companySymbol in depositedData) {
-                        const csvText = depositedData[companySymbol];
-                        console.log(`Uploading ${companySymbol} to Firebase...`);
-                        // Create a promise for each upload
-                        uploadPromises.push(db.ref(`nepse/data/${companySymbol}`).set(csvText));
+                if (!chrome.runtime || !chrome.runtime.sendMessage) {
+                    alert("This page must be opened by the NepseAlpha extension to deposit data.");
+                    hideLoader();
+                    return;
+                }
+
+                chrome.runtime.sendMessage(EXTENSION_ID, { action: 'request-data-for-deposit' }, async (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error("[Website] Error communicating with extension:", chrome.runtime.lastError.message);
+                        alert("Could not connect to the data collection extension. Please ensure it is installed and enabled, and the EXTENSION_ID is correct in the website code.");
+                        hideLoader();
+                        return;
                     }
 
-                    // Wait for all uploads to complete
-                    await Promise.all(uploadPromises);
+                    if (response && response.success) {
+                        console.log(`[Website] Received data for ${Object.keys(response.data).length} companies.`);
+                        showLoader('Uploading new data to database...');
+                        try {
+                            const uploadPromises = [];
+                            for (const companySymbol in response.data) {
+                                const csvText = response.data[companySymbol];
+                                uploadPromises.push(db.ref(`nepse/data/${companySymbol}`).set(csvText));
+                            }
+                            await Promise.all(uploadPromises);
+                            
+                            alert("New company data has been successfully deposited and saved to the database!");
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                            await loadCompanyList();
+                        } catch (error) {
+                            console.error("Error saving deposited data:", error);
+                            alert("An error occurred while saving the new data.");
+                        } finally {
+                            hideLoader();
+                        }
+                    } else {
+                        console.error("[Website] Extension reported an error or had no data:", response?.error);
+                        alert("The extension had no new data to deposit.");
+                        hideLoader();
+                    }
+                });
+            }
 
-                    console.log("SUCCESS: All new data has been uploaded to Firebase.");
-                    alert("New company data has been successfully collected and saved to the database!");
-                    
+            async function handleDataDepositFromLocalStorage() {
+                const depositedDataJSON = localStorage.getItem('nepse_alpha_data_deposit');
+                if (!depositedDataJSON) return;
+
+                showLoader('New data detected! Uploading to database...');
+                try {
+                    const depositedData = JSON.parse(depositedDataJSON);
+                    const uploadPromises = Object.entries(depositedData).map(([symbol, csv]) => 
+                        db.ref(`nepse/data/${symbol}`).set(csv)
+                    );
+                    await Promise.all(uploadPromises);
+                    alert("New company data has been successfully saved to the database!");
                     localStorage.removeItem('nepse_alpha_data_deposit');
                 } catch (error) {
-                    console.error("Failed to process deposited data:", error);
-                    alert("There was an error processing the newly collected data.");
-                } finally {
-                    // We don't reload, we just re-run loadCompanyList after this promise resolves.
+                    console.error("Failed to process deposited data from localStorage:", error);
+                    alert("There was an error processing newly collected data.");
                 }
             }
             
@@ -336,7 +382,7 @@
                 try {
                     const snapshot = await db.ref('nepse/data').once('value');
                     const data = snapshot.val();
-                    if (data) {
+                    if (data && Object.keys(data).length > 0) {
                         const companies = Object.keys(data).sort();
                         companySelect.innerHTML = companies.map(c => `<option value="${c}">${c}</option>`).join('');
                         companySelect.disabled = false;
@@ -419,18 +465,14 @@
                 const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
                 const dateIndex = header.indexOf('Date');
                 const closeIndex = header.indexOf('Close');
-                
-                if (dateIndex === -1 || closeIndex === -1) {
-                    throw new Error("CSV file is missing 'Date' or 'Close' column.");
-                }
+                if (dateIndex === -1 || closeIndex === -1) throw new Error("CSV is missing 'Date' or 'Close' column.");
 
                 return lines.slice(1).map(line => {
                     const values = line.split(',');
                     const date = values[dateIndex].replace(/"/g, '').trim();
                     const close = parseFloat(values[closeIndex].replace(/"/g, '').trim());
                     return { x: new Date(date).getTime(), y: close };
-                }).filter(d => d.x && !isNaN(d.y))
-                  .reverse();
+                }).filter(d => d.x && !isNaN(d.y)).reverse();
             }
             
             async function callGeminiAPI(historicalData) {
@@ -439,33 +481,9 @@
                 const compactData = historicalData.map(d => `${new Date(d.x).toISOString().split('T')[0]},${d.y}`).join('\n');
 
                 const prompt = `
-                    Analyze the following historical stock data, ending on ${new Date(latestDataPoint.x).toISOString().split('T')[0]} with a closing price of ${latestPrice}.
-                    Provide a detailed future projection and a summary.
-                    
-                    You must respond with ONLY a valid JSON object. Do not include any text, notes, or markdown backticks.
-                    The JSON must have two top-level keys: "projections" and "summary".
-
+                    Analyze the following historical stock data, ending on ${new Date(latestDataPoint.x).toISOString().split('T')[0]} with a closing price of ${latestPrice}. Provide a detailed future projection and a summary. You must respond with ONLY a valid JSON object. Do not include any text, notes, or markdown backticks. The JSON must have two top-level keys: "projections" and "summary".
                     1. The "projections" key must be an array of objects. Each object represents a future data point and must have two keys: "date" (a future date string in "YYYY-MM-DD" format) and "price" (a numerical prediction). Provide points for approximately 7, 30, 90, 180, and 365 days from the latest data date.
-                    
                     2. The "summary" key must be an object with keys: "next_week", "next_month", "next_six_months", "next_year". Each of these must be an object with two string keys: "prediction" (e.g., "Bullish trend to ~420.0") and "justification".
-
-                    Example JSON format:
-                    {
-                      "projections": [
-                        { "date": "2025-08-08", "price": 1035.5 },
-                        { "date": "2025-09-01", "price": 1050.0 },
-                        { "date": "2025-11-01", "price": 1080.0 },
-                        { "date": "2026-02-01", "price": 1120.0 },
-                        { "date": "2026-08-01", "price": 1150.0 }
-                      ],
-                      "summary": {
-                        "next_week": { "prediction": "Slightly Up to ~1035.5", "justification": "Continuation of recent positive momentum is expected." },
-                        "next_month": { "prediction": "Bullish to ~1050.0", "justification": "Strong volume supports a continued upward trend for the month." },
-                        "next_six_months": { "prediction": "Strongly Bullish to ~1120.0", "justification": "Fundamental indicators and market cycle suggest significant growth." },
-                        "next_year": { "prediction": "Very Bullish to ~1150.0", "justification": "Long-term historical performance indicates a high probability of reaching this target." }
-                      }
-                    }
-
                     Historical Data (Date,Close):
                     \`\`\`
                     ${compactData}
@@ -497,20 +515,12 @@
                     const predClass = value.prediction.toLowerCase().includes('up') || value.prediction.toLowerCase().includes('bullish') ? 'up' : 'down';
                     const item = document.createElement('div');
                     item.className = 'analysis-item';
-                    item.innerHTML = `
-                        <strong>${key.replace(/_/g, ' ')}</strong>
-                        <p class="prediction-line ${predClass}">${value.prediction}</p>
-                        <p class="justification">${value.justification}</p>
-                    `;
+                    item.innerHTML = `<strong>${key.replace(/_/g, ' ')}</strong><p class="prediction-line ${predClass}">${value.prediction}</p><p class="justification">${value.justification}</p>`;
                     aiAnalysisContent.appendChild(item);
                 });
                 aiAnalysisContainer.classList.remove('hidden');
 
-                const predictionData = aiResponse.projections.map(p => ({
-                    x: new Date(p.date).getTime(),
-                    y: p.price
-                }));
-
+                const predictionData = aiResponse.projections.map(p => ({ x: new Date(p.date).getTime(), y: p.price }));
                 const combinedPredictionData = [historicalData[historicalData.length - 1], ...predictionData];
 
                 const options = {
@@ -518,56 +528,19 @@
                         { name: 'Historical Price', type: 'area', data: historicalData },
                         { name: 'AI Prediction', type: 'line', data: combinedPredictionData }
                     ],
-                    chart: {
-                        height: '100%',
-                        type: 'line',
-                        toolbar: { show: true, tools: { download: true, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } },
-                        zoom: { enabled: true },
-                        animations: { enabled: true, easing: 'easeinout', speed: 800 }
-                    },
+                    chart: { height: '100%', type: 'line', toolbar: { show: true }, zoom: { enabled: true }, animations: { enabled: true, easing: 'easeinout', speed: 800 } },
                     colors: ['#0d6efd', '#198754'],
-                    stroke: {
-                        width: [3, 4],
-                        curve: 'smooth',
-                        dashArray: [0, 8]
-                    },
-                    fill: {
-                        type: 'gradient',
-                        gradient: {
-                            shadeIntensity: 1,
-                            opacityFrom: 0.7,
-                            opacityTo: 0.1,
-                            stops: [0, 100]
-                        }
-                    },
-                    xaxis: {
-                        type: 'datetime',
-                        labels: { datetimeUTC: false, style: { colors: '#606770' } }
-                    },
-                    yaxis: {
-                        labels: {
-                            formatter: (val) => val ? val.toFixed(2) : '0',
-                            style: { colors: '#606770' }
-                        }
-                    },
-                    tooltip: {
-                        x: { format: 'dd MMM yyyy' },
-                        theme: 'light'
-                    },
-                    legend: {
-                        position: 'top',
-                        horizontalAlign: 'left'
-                    },
-                    grid: {
-                        borderColor: '#e0e0e0',
-                        strokeDashArray: 4
-                    }
+                    stroke: { width: [3, 4], curve: 'smooth', dashArray: [0, 8] },
+                    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.7, opacityTo: 0.1, stops: [0, 100] } },
+                    xaxis: { type: 'datetime', labels: { datetimeUTC: false, style: { colors: '#606770' } } },
+                    yaxis: { labels: { formatter: (val) => val ? val.toFixed(2) : '0', style: { colors: '#606770' } } },
+                    tooltip: { x: { format: 'dd MMM yyyy' }, theme: 'light' },
+                    legend: { position: 'top', horizontalAlign: 'left' },
+                    grid: { borderColor: '#e0e0e0', strokeDashArray: 4 }
                 };
 
                 chartPlaceholder.classList.add('hidden');
-                if (stockChart) {
-                    stockChart.destroy();
-                }
+                if (stockChart) stockChart.destroy();
                 stockChart = new ApexCharts(document.querySelector("#stock-chart"), options);
                 stockChart.render();
             }
