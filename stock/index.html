@@ -209,7 +209,6 @@
 </head>
 <body>
 
-    <!-- Loading Overlay -->
     <div id="loader-overlay" class="hidden">
         <div class="loader"></div>
         <p id="loader-text">Loading...</p>
@@ -233,17 +232,12 @@
             </div>
             <div id="ai-analysis-container" class="analysis-results card hidden">
                 <h3>AI Analysis Summary</h3>
-                <div id="ai-analysis-content">
-                    <!-- AI text results will be rendered here -->
-                </div>
+                <div id="ai-analysis-content"></div>
             </div>
         </aside>
-
         <main class="content-area">
             <div class="chart-container card">
-                <div id="stock-chart">
-                    <!-- The main interactive chart will be rendered here -->
-                </div>
+                <div id="stock-chart"></div>
                 <p id="chart-placeholder">Please select a company to begin.</p>
             </div>
         </main>
@@ -255,29 +249,15 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- IMPORTANT: SET YOUR EXTENSION ID HERE ---
-            // 1. Go to chrome://extensions
-            // 2. Enable "Developer mode"
-            // 3. Find your "NepseAlpha Data Depositor" extension
-            // 4. Copy the ID and paste it below.
+            // ===================================================================
+            // === EXTENSION ID HAS BEEN ADDED AS REQUESTED ===
+            // ===================================================================
             const EXTENSION_ID = "cebjgcgohdpgjadodkcgekdpengonecm"; 
+            // ===================================================================
 
-            // --- CONFIGURATION ---
-            const firebaseConfig = {
-                apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
-                authDomain: "d-data-storage-399801.firebaseapp.com",
-                databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
-                projectId: "d-data-storage-399801",
-                storageBucket: "d-data-storage-399801.appspot.com",
-                messagingSenderId: "515303559494",
-                appId: "1:515303559494:web:f108f881e01ee3ddec9547",
-                measurementId: "G-BECRQ4T8BP"
-            };
-
+            const firebaseConfig = { apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI", authDomain: "d-data-storage-399801.firebaseapp.com", databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com", projectId: "d-data-storage-399801", storageBucket: "d-data-storage-399801.appspot.com", messagingSenderId: "515303559494", appId: "1:515303559494:web:f108f881e01ee3ddec9547", measurementId: "G-BECRQ4T8BP" };
             const GEMINI_API_KEY = 'AIzaSyBqopZ5Q_RKyzYYMI-LmcbSaJwONy16TzU';
             const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-
-            // --- DOM ELEMENT REFERENCES ---
             const companySelect = document.getElementById('company-select');
             const analyzeBtn = document.getElementById('analyze-btn');
             const chartContainer = document.getElementById('stock-chart');
@@ -286,21 +266,15 @@
             const aiAnalysisContent = document.getElementById('ai-analysis-content');
             const loaderOverlay = document.getElementById('loader-overlay');
             const loaderText = document.getElementById('loader-text');
+            let stockChart = null;
 
-            let stockChart = null; // To hold the chart instance
-
-            // --- INITIALIZATION ---
             firebase.initializeApp(firebaseConfig);
             const db = firebase.database();
             
-            // --- DATA DEPOSIT HANDLER & INITIAL LOAD ---
             handleDataDepositRequest();
             loadCompanyList(); 
 
-            // --- EVENT LISTENERS ---
             analyzeBtn.addEventListener('click', handleAnalysisRequest);
-            
-            // Listen for the custom event dispatched by the extension's old depositor script (for compatibility)
             window.addEventListener('nepseDataDeposited', () => handleDataDepositFromLocalStorage().then(loadCompanyList));
 
 
@@ -313,10 +287,10 @@
                     return;
                 }
 
-                console.log("[Website] Deposit request detected. Sending message to extension.");
+                console.log("[Website] Deposit request detected. Sending message to extension ID:", EXTENSION_ID);
                 showLoader('Requesting data from extension...');
 
-                if (!chrome.runtime || !chrome.runtime.sendMessage) {
+                if (!chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
                     alert("This page must be opened by the NepseAlpha extension to deposit data.");
                     hideLoader();
                     return;
@@ -325,7 +299,7 @@
                 chrome.runtime.sendMessage(EXTENSION_ID, { action: 'request-data-for-deposit' }, async (response) => {
                     if (chrome.runtime.lastError) {
                         console.error("[Website] Error communicating with extension:", chrome.runtime.lastError.message);
-                        alert("Could not connect to the data collection extension. Please ensure it is installed and enabled, and the EXTENSION_ID is correct in the website code.");
+                        alert("Could not connect to the data collection extension. Please ensure it is installed and enabled.");
                         hideLoader();
                         return;
                     }
@@ -334,11 +308,9 @@
                         console.log(`[Website] Received data for ${Object.keys(response.data).length} companies.`);
                         showLoader('Uploading new data to database...');
                         try {
-                            const uploadPromises = [];
-                            for (const companySymbol in response.data) {
-                                const csvText = response.data[companySymbol];
-                                uploadPromises.push(db.ref(`nepse/data/${companySymbol}`).set(csvText));
-                            }
+                            const uploadPromises = Object.entries(response.data).map(([symbol, csv]) => 
+                                db.ref(`nepse/data/${symbol}`).set(csv)
+                            );
                             await Promise.all(uploadPromises);
                             
                             alert("New company data has been successfully deposited and saved to the database!");
@@ -361,13 +333,10 @@
             async function handleDataDepositFromLocalStorage() {
                 const depositedDataJSON = localStorage.getItem('nepse_alpha_data_deposit');
                 if (!depositedDataJSON) return;
-
                 showLoader('New data detected! Uploading to database...');
                 try {
                     const depositedData = JSON.parse(depositedDataJSON);
-                    const uploadPromises = Object.entries(depositedData).map(([symbol, csv]) => 
-                        db.ref(`nepse/data/${symbol}`).set(csv)
-                    );
+                    const uploadPromises = Object.entries(depositedData).map(([symbol, csv]) => db.ref(`nepse/data/${symbol}`).set(csv));
                     await Promise.all(uploadPromises);
                     alert("New company data has been successfully saved to the database!");
                     localStorage.removeItem('nepse_alpha_data_deposit');
@@ -401,16 +370,13 @@
             async function handleAnalysisRequest() {
                 const companySymbol = companySelect.value;
                 if (!companySymbol) return;
-
                 showLoader('Checking for recent analysis...');
                 aiAnalysisContainer.classList.add('hidden');
                 analyzeBtn.disabled = true;
-
                 try {
                     const analysisSnapshot = await db.ref(`nepse/analyses/${companySymbol}`).once('value');
                     const cachedAnalysis = analysisSnapshot.val();
                     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-
                     let analysisData;
                     if (cachedAnalysis && cachedAnalysis.timestamp > oneDayAgo) {
                         console.log("Using fresh analysis from Firebase cache.");
@@ -419,15 +385,12 @@
                         console.log("Stale or no analysis found. Generating new one.");
                         analysisData = await generateAndSaveAnalysis(companySymbol);
                     }
-                    
                     showLoader('Loading historical data...');
                     const csvSnapshot = await db.ref(`nepse/data/${companySymbol}`).once('value');
                     const csvData = csvSnapshot.val();
                     if (!csvData) throw new Error("Could not find historical data for this company.");
-
                     const historicalData = parseCSV(csvData);
                     renderChartAndAnalysis(historicalData, analysisData);
-                    
                 } catch (error) {
                     console.error("Analysis failed:", error);
                     chartPlaceholder.textContent = `An error occurred: ${error.message}`;
@@ -445,13 +408,10 @@
                 const csvSnapshot = await db.ref(`nepse/data/${companySymbol}`).once('value');
                 const csvData = csvSnapshot.val();
                 if (!csvData) throw new Error("No historical data to analyze.");
-
                 const historicalData = parseCSV(csvData);
                 if(historicalData.length < 20) throw new Error("Insufficient data for a reliable analysis.");
-
                 showLoader('Analyzing with AI (this may take a moment)...');
                 const aiResponse = await callGeminiAPI(historicalData);
-                
                 await db.ref(`nepse/analyses/${companySymbol}`).set({
                     analysisData: aiResponse,
                     timestamp: Date.now()
@@ -466,7 +426,6 @@
                 const dateIndex = header.indexOf('Date');
                 const closeIndex = header.indexOf('Close');
                 if (dateIndex === -1 || closeIndex === -1) throw new Error("CSV is missing 'Date' or 'Close' column.");
-
                 return lines.slice(1).map(line => {
                     const values = line.split(',');
                     const date = values[dateIndex].replace(/"/g, '').trim();
@@ -479,7 +438,6 @@
                 const latestDataPoint = historicalData[historicalData.length - 1];
                 const latestPrice = latestDataPoint.y;
                 const compactData = historicalData.map(d => `${new Date(d.x).toISOString().split('T')[0]},${d.y}`).join('\n');
-
                 const prompt = `
                     Analyze the following historical stock data, ending on ${new Date(latestDataPoint.x).toISOString().split('T')[0]} with a closing price of ${latestPrice}. Provide a detailed future projection and a summary. You must respond with ONLY a valid JSON object. Do not include any text, notes, or markdown backticks. The JSON must have two top-level keys: "projections" and "summary".
                     1. The "projections" key must be an array of objects. Each object represents a future data point and must have two keys: "date" (a future date string in "YYYY-MM-DD" format) and "price" (a numerical prediction). Provide points for approximately 7, 30, 90, 180, and 365 days from the latest data date.
@@ -489,21 +447,15 @@
                     ${compactData}
                     \`\`\`
                 `;
-
                 const response = await fetch(GEMINI_API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        "generationConfig": { "responseMimeType": "application/json" }
-                    })
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], "generationConfig": { "responseMimeType": "application/json" } })
                 });
-
                 if (!response.ok) {
                     const errorBody = await response.json();
                     throw new Error(`API request failed: ${errorBody.error.message}`);
                 }
-                
                 const result = await response.json();
                 const responseText = result.candidates[0].content.parts[0].text;
                 return JSON.parse(responseText);
@@ -519,15 +471,10 @@
                     aiAnalysisContent.appendChild(item);
                 });
                 aiAnalysisContainer.classList.remove('hidden');
-
                 const predictionData = aiResponse.projections.map(p => ({ x: new Date(p.date).getTime(), y: p.price }));
                 const combinedPredictionData = [historicalData[historicalData.length - 1], ...predictionData];
-
                 const options = {
-                    series: [
-                        { name: 'Historical Price', type: 'area', data: historicalData },
-                        { name: 'AI Prediction', type: 'line', data: combinedPredictionData }
-                    ],
+                    series: [ { name: 'Historical Price', type: 'area', data: historicalData }, { name: 'AI Prediction', type: 'line', data: combinedPredictionData } ],
                     chart: { height: '100%', type: 'line', toolbar: { show: true }, zoom: { enabled: true }, animations: { enabled: true, easing: 'easeinout', speed: 800 } },
                     colors: ['#0d6efd', '#198754'],
                     stroke: { width: [3, 4], curve: 'smooth', dashArray: [0, 8] },
@@ -538,21 +485,14 @@
                     legend: { position: 'top', horizontalAlign: 'left' },
                     grid: { borderColor: '#e0e0e0', strokeDashArray: 4 }
                 };
-
                 chartPlaceholder.classList.add('hidden');
                 if (stockChart) stockChart.destroy();
                 stockChart = new ApexCharts(document.querySelector("#stock-chart"), options);
                 stockChart.render();
             }
 
-            function showLoader(text) {
-                loaderText.textContent = text;
-                loaderOverlay.classList.remove('hidden');
-            }
-
-            function hideLoader() {
-                loaderOverlay.classList.add('hidden');
-            }
+            function showLoader(text) { loaderText.textContent = text; loaderOverlay.classList.remove('hidden'); }
+            function hideLoader() { loaderOverlay.classList.add('hidden'); }
         });
     </script>
 
