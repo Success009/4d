@@ -280,13 +280,7 @@
             firebase.initializeApp(firebaseConfig);
             const db = firebase.database();
             
-            // --- DATA DEPOSIT HANDLER & INITIAL LOAD ---
-            window.addEventListener('nepseDataDeposited', handleDataDeposit);
-            
-            // Immediately check for data on load, in case the event was already fired
-            handleDataDeposit(); 
-            
-            // Load existing companies from the database
+            handleDataDepositRequest();
             loadCompanyList(); 
 
             // --- EVENT LISTENERS ---
@@ -294,40 +288,67 @@
             
             // --- CORE FUNCTIONS ---
             
-            async function handleDataDeposit() {
-                console.log("[Website] Checking for newly deposited data in localStorage...");
-                const depositedDataJSON = localStorage.getItem('nepse_alpha_data_deposit');
-                if (!depositedDataJSON) {
-                    console.log("[Website] No new data deposit found.");
+            function handleDataDepositRequest() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const extensionId = urlParams.get('source_extension_id');
+                if (!extensionId) {
+                    console.log("[Website] No deposit request found in URL. Operating normally.");
                     return;
                 }
 
-                showLoader('New data detected! Uploading to database...');
-                console.log("[Website] New data deposit found, processing...");
+                console.log(`[Website] Deposit request detected from extension ID: ${extensionId}.`);
+                showLoader('Connecting to extension for data deposit...');
+                
+                requestDataWithRetry(extensionId, 15); // Retry for 15 seconds
+            }
 
-                try {
-                    const depositedData = JSON.parse(depositedDataJSON);
-                    const uploadPromises = [];
-                    let companyCount = 0;
-                    
-                    for (const companySymbol in depositedData) {
-                        const csvText = depositedData[companySymbol];
-                        console.log(`[Website] Queuing ${companySymbol} for Firebase upload...`);
-                        uploadPromises.push(db.ref(`nepse/data/${companySymbol}`).set(csvText));
-                        companyCount++;
+            function requestDataWithRetry(extensionId, maxAttempts, attempt = 1) {
+                console.log(`[Website] Attempt #${attempt} to contact extension...`);
+                
+                if (!window.chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
+                    if (attempt === 1) alert("This page is ready to receive data, but it seems it was not opened by the required Chrome Extension.");
+                    hideLoader();
+                    return;
+                }
+
+                chrome.runtime.sendMessage(extensionId, { action: 'request-data-for-deposit' }, async (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.warn(`[Website] Attempt #${attempt} failed:`, chrome.runtime.lastError.message);
+                        if (attempt < maxAttempts) {
+                            setTimeout(() => requestDataWithRetry(extensionId, maxAttempts, attempt + 1), 1000); // Retry after 1 second
+                        } else {
+                            alert("Failed to connect to the data collection extension after multiple attempts. Please try the collection again.");
+                            hideLoader();
+                        }
+                        return;
                     }
 
-                    await Promise.all(uploadPromises);
-                    console.log(`[Website] SUCCESS: All ${companyCount} data blobs have been uploaded to Firebase.`);
-                    alert("New company data has been successfully collected and saved to the database!");
-                    
-                    // IMPORTANT: Clean up localStorage and reload the company list to reflect new data
-                    localStorage.removeItem('nepse_alpha_data_deposit');
-                    await loadCompanyList(); 
+                    console.log(`[Website] SUCCESS: Connected to extension and received response.`);
+                    if (response && response.success) {
+                        await processDepositedData(response.data);
+                    } else {
+                        console.error("[Website] Extension reported an error or had no data:", response?.error);
+                        alert("The extension had no new data to deposit.");
+                        hideLoader();
+                    }
+                });
+            }
 
+            async function processDepositedData(data) {
+                const companyCount = Object.keys(data).length;
+                console.log(`[Website] Received data for ${companyCount} companies.`);
+                showLoader(`Uploading data for ${companyCount} companies to database...`);
+                try {
+                    const uploadPromises = Object.entries(data).map(([symbol, csv]) => 
+                        db.ref(`nepse/data/${symbol}`).set(csv)
+                    );
+                    await Promise.all(uploadPromises);
+                    alert("New company data has been successfully deposited and saved to the database!");
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    await loadCompanyList();
                 } catch (error) {
-                    console.error("[Website] Failed to process deposited data:", error);
-                    alert("There was an error processing the newly collected data.");
+                    console.error("Error saving deposited data:", error);
+                    alert("An error occurred while saving the new data.");
                 } finally {
                     hideLoader();
                 }
@@ -480,14 +501,17 @@
                 const combinedPredictionData = [historicalData[historicalData.length - 1], ...predictionData];
 
                 const options = {
-                    series: [ { name: 'Historical Price', type: 'area', data: historicalData }, { name: 'AI Prediction', type: 'line', data: combinedPredictionData } ],
+                    series: [
+                        { name: 'Historical Price', type: 'area', data: historicalData },
+                        { name: 'AI Prediction', type: 'line', data: combinedPredictionData }
+                    ],
                     chart: { height: '100%', type: 'line', toolbar: { show: true }, zoom: { enabled: true }, animations: { enabled: true, easing: 'easeinout', speed: 800 } },
                     colors: ['#0d6efd', '#198754'],
                     stroke: { width: [3, 4], curve: 'smooth', dashArray: [0, 8] },
                     fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.7, opacityTo: 0.1, stops: [0, 100] } },
                     xaxis: { type: 'datetime', labels: { datetimeUTC: false, style: { colors: '#606770' } } },
                     yaxis: { labels: { formatter: (val) => val ? val.toFixed(2) : '0', style: { colors: '#606770' } } },
-                    tooltip: { x: { format: 'dd MMM yyyy' }, theme: 'light' },
+                    tooltip: { x: { format: 'dd MMM yy' }, theme: 'light' },
                     legend: { position: 'top', horizontalAlign: 'left' },
                     grid: { borderColor: '#e0e0e0', strokeDashArray: 4 }
                 };
