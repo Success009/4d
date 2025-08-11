@@ -2,536 +2,384 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NepseAlpha Stock Predictor</title>
-    
-    <!-- Google Fonts for a modern look -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-    
-    <!-- ApexCharts Library for interactive charts -->
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-
+    <title>NepseAlpha Predictor</title>
     <style>
         :root {
-            --bg-color: #f0f2f5;
-            --card-bg-color: #ffffff;
-            --primary-text-color: #1c1e21;
-            --secondary-text-color: #606770;
-            --accent-color: #0d6efd;
-            --accent-color-hover: #0b5ed7;
-            --border-color: #e0e0e0;
-            --success-color: #198754;
-            --danger-color: #dc3545;
-            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            --border-radius: 12px;
+            --primary-color: #3498db;
+            --secondary-color: #f1c40f;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+            --dark-color: #2c3e50;
+            --light-color: #ecf0f1;
+            --text-color: #34495e;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
         }
-
-        * {
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: 'Poppins', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #f4f6f9;
+            color: var(--text-color);
             margin: 0;
-            background-color: var(--bg-color);
-            color: var(--primary-text-color);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
             padding: 20px;
         }
-
-        .main-container {
-            display: flex;
-            width: 100%;
-            max-width: 1600px;
-            height: 90vh;
-            max-height: 900px;
-            gap: 24px;
+        .container { max-width: 1200px; margin: 0 auto; }
+        header {
+            text-align: center; margin-bottom: 30px;
+            padding-bottom: 20px; border-bottom: 1px solid #dde;
         }
-
-        .sidebar {
-            flex: 0 0 350px;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
+        header h1 { margin: 0; font-size: 36px; color: var(--dark-color); }
+        #connection-status {
+            margin: 10px 0 0; font-size: 14px; font-weight: 500;
+            padding: 8px 12px; border-radius: var(--border-radius);
+            display: inline-block; transition: all 0.3s ease;
         }
-
-        .content-area {
-            flex: 1;
-            display: flex;
+        .status-disconnected { background-color: #f39c12; color: white; }
+        .status-connected { background-color: var(--success-color); color: white; }
+        .status-error { background-color: var(--danger-color); color: white; }
+        .main-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 30px;
         }
-
         .card {
-            background-color: var(--card-bg-color);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            padding: 24px;
+            background: white; padding: 25px;
+            border-radius: var(--border-radius); box-shadow: var(--box-shadow);
         }
-
-        .sidebar-header {
-            text-align: center;
+        h2 { font-size: 22px; color: var(--dark-color); margin-top: 0; margin-bottom: 20px; }
+        .btn {
+            display: block; width: 100%; padding: 12px; border: none;
+            border-radius: var(--border-radius); font-size: 16px; font-weight: 600;
+            color: white; cursor: pointer; transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        .sidebar-header h2 {
-            margin: 0;
-            font-size: 28px;
+        .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        .btn-primary { background-color: var(--primary-color); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; }
+        select {
+            width: 100%; padding: 10px; border: 1px solid #ccc;
+            border-radius: var(--border-radius); font-size: 14px; background-color: white;
         }
-        .sidebar-header p {
-            margin: 4px 0 0;
-            color: var(--secondary-text-color);
-            font-size: 14px;
-        }
-
-        .controls h3, .analysis-results h3 {
-            margin-top: 0;
-            margin-bottom: 20px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
-        }
-
-        .form-group label {
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 8px;
-            display: block;
-        }
-        #company-select {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            font-size: 16px;
-            cursor: pointer;
-            background-color: #fff;
-        }
-
-        .btn-analyze {
-            width: 100%;
-            padding: 14px;
-            font-size: 16px;
-            font-weight: 600;
-            color: #fff;
-            background-color: var(--accent-color);
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 20px;
-            transition: background-color 0.2s, transform 0.1s;
-        }
-        .btn-analyze:hover:not(:disabled) {
-            background-color: var(--accent-color-hover);
-            transform: translateY(-2px);
-        }
-        .btn-analyze:disabled {
-            background-color: #ced4da;
-            cursor: not-allowed;
-        }
-
-        .analysis-results {
-            flex: 1;
-            overflow-y: auto;
-        }
-        .analysis-item {
-            margin-bottom: 16px;
-        }
-        .analysis-item strong {
-            font-size: 14px;
-            text-transform: capitalize;
-        }
-        .prediction-line {
-            font-weight: 600;
-            font-size: 18px;
-        }
-        .prediction-line .up { color: var(--success-color); }
-        .prediction-line .down { color: var(--danger-color); }
-        .justification {
-            font-size: 12px;
-            color: var(--secondary-text-color);
-            margin-top: 4px;
-            font-style: italic;
-        }
-
-        .chart-container {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        #stock-chart {
-            flex-grow: 1;
-        }
-        #chart-placeholder {
-            margin: auto;
-            font-size: 20px;
-            color: var(--secondary-text-color);
-            text-align: center;
-        }
-
-        /* Loader Styles */
-        .hidden {
-            display: none !important;
-        }
-        #loader-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(5px);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            transition: opacity 0.3s;
-        }
-        .loader {
-            border: 6px solid var(--bg-color);
-            border-top: 6px solid var(--accent-color);
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 1s linear infinite;
-        }
-        #loader-text {
-            margin-top: 20px;
-            font-size: 18px;
-            font-weight: 600;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        #data-preview-container { margin-bottom: 20px; }
+        #data-preview-container h3 { margin-top: 0; text-align: left; font-size: 16px; color: var(--dark-color); margin-bottom: 10px; }
+        .table-wrapper { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: var(--border-radius); }
+        #data-preview-table { width: 100%; border-collapse: collapse; }
+        #data-preview-table th, #data-preview-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; font-size: 12px; white-space: nowrap; }
+        #data-preview-table th { background-color: var(--light-color); position: sticky; top: 0; }
+        #analysis-result-container { margin-top: 20px; min-height: 50px; }
+        #analysis-result { padding: 10px 0; }
+        .analysis-item { margin-bottom: 15px; }
+        .analysis-item:last-child { margin-bottom: 0; }
+        .analysis-item strong { display: block; font-size: 14px; color: var(--dark-color); text-transform: capitalize; }
+        .prediction-line { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+        .prediction { font-weight: bold; }
+        .prediction.up { color: var(--success-color); }
+        .prediction.down { color: var(--danger-color); }
+        .percentage { font-size: 12px; font-weight: bold; }
+        .percentage.up { color: var(--success-color); }
+        .percentage.down { color: var(--danger-color); }
+        .confidence-line { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 5px; }
+        .confidence-bar-bg { flex-grow: 1; height: 8px; background-color: var(--light-color); border-radius: 4px; overflow: hidden; }
+        .confidence-bar-fill { height: 100%; background-color: var(--primary-color); border-radius: 4px; }
+        .justification { font-size: 12px; color: #7f8c8d; margin-top: 6px; font-style: italic; }
+        #history-list { display: flex; flex-direction: column; gap: 15px; max-height: 600px; overflow-y: auto; padding: 5px; }
+        .history-item { background: #fdfdfd; padding: 15px; border-radius: var(--border-radius); border: 1px solid #eee; }
+        .history-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .history-item-header h4 { margin: 0; font-size: 18px; color: var(--primary-color); }
+        .history-item-header .date { font-size: 11px; color: #7f8c8d; text-align: right; }
+        .history-item-body { border-top: 1px solid #eee; padding-top: 10px; }
+        .status-text { text-align: center; font-weight: 500; min-height: 20px; color: #7f8c8d; }
+        .error-text { color: var(--danger-color); font-weight: bold; padding: 10px; background-color: #fdd; border-radius: var(--border-radius); }
+        #loader { border: 4px solid var(--light-color); border-radius: 50%; border-top: 4px solid var(--primary-color); width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+        .hidden { display: none !important; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
+    <div class="container">
+        <header>
+            <h1>NepseAlpha Predictor</h1>
+            <p id="connection-status" class="status-disconnected">Initializing...</p>
+        </header>
 
-    <div id="loader-overlay" class="hidden">
-        <div class="loader"></div>
-        <p id="loader-text">Loading...</p>
-    </div>
-
-    <div class="main-container">
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h2>Stock Predictor</h2>
-                <p>AI-Powered Analysis</p>
-            </div>
-            <div class="controls card">
-                <h3>Controls</h3>
+        <div class="main-content">
+            <!-- Analysis Section -->
+            <div id="analysis-section" class="card">
+                <h2>Analyze Company Data</h2>
                 <div class="form-group">
-                    <label for="company-select">Select Company</label>
+                    <label for="company-select">Select a Company:</label>
                     <select id="company-select" disabled>
-                        <option>Loading from database...</option>
+                        <option>Waiting for extension connection...</option>
                     </select>
                 </div>
-                <button id="analyze-btn" class="btn-analyze" disabled>Analyze with AI</button>
+                <div id="data-preview-container">
+                    <h3>Data Preview (Latest 10 entries)</h3>
+                    <div class="table-wrapper">
+                        <table id="data-preview-table"></table>
+                    </div>
+                </div>
+                <button id="process-data-btn" class="btn btn-primary" disabled>Analyze with AI</button>
+                <div id="analysis-result-container">
+                    <div id="loader" class="hidden"></div>
+                    <div id="analysis-result"></div>
+                </div>
             </div>
-            <div id="ai-analysis-container" class="analysis-results card hidden">
-                <h3>AI Analysis Summary</h3>
-                <div id="ai-analysis-content"></div>
+
+            <!-- History Section -->
+            <div id="history-section" class="card">
+                <h2>Analysis History</h2>
+                <div id="history-list">
+                    <p class="status-text">Loading history...</p>
+                </div>
             </div>
-        </aside>
-        <main class="content-area">
-            <div class="chart-container card">
-                <div id="stock-chart"></div>
-                <p id="chart-placeholder">Please select a company to begin.</p>
-            </div>
-        </main>
+        </div>
     </div>
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
-    
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- CONFIGURATION ---
-            const firebaseConfig = {
-                apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
-                authDomain: "d-data-storage-399801.firebaseapp.com",
-                databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
-                projectId: "d-data-storage-399801",
-                storageBucket: "d-data-storage-399801.appspot.com",
-                messagingSenderId: "515303559494",
-                appId: "1:515303559494:web:f108f881e01ee3ddec9547",
-                measurementId: "G-BECRQ4T8BP"
-            };
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- CONFIGURATION ---
+        // CRITICAL: Replace with your extension's ID from chrome://extensions
+        const EXTENSION_ID = 'YOUR_EXTENSION_ID_HERE'; 
+        const GEMINI_API_KEY = 'AIzaSyBqopZ5Q_RKyzYYMI-LmcbSaJwONy16TzU';
+        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+        let allCompanyData = {};
+        let cooldownInterval = null;
 
-            const GEMINI_API_KEY = 'AIzaSyBqopZ5Q_RKyzYYMI-LmcbSaJwONy16TzU';
-            const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+        // --- ELEMENT DECLARATIONS ---
+        const connectionStatusEl = document.getElementById('connection-status');
+        const companySelect = document.getElementById('company-select');
+        const dataPreviewTable = document.getElementById('data-preview-table');
+        const processDataBtn = document.getElementById('process-data-btn');
+        const loader = document.getElementById('loader');
+        const analysisResult = document.getElementById('analysis-result');
+        const historyList = document.getElementById('history-list');
 
-            // --- DOM ELEMENT REFERENCES ---
-            const companySelect = document.getElementById('company-select');
-            const analyzeBtn = document.getElementById('analyze-btn');
-            const chartContainer = document.getElementById('stock-chart');
-            const chartPlaceholder = document.getElementById('chart-placeholder');
-            const aiAnalysisContainer = document.getElementById('ai-analysis-container');
-            const aiAnalysisContent = document.getElementById('ai-analysis-content');
-            const loaderOverlay = document.getElementById('loader-overlay');
-            const loaderText = document.getElementById('loader-text');
-
-            let stockChart = null; // To hold the chart instance
-
-            // --- INITIALIZATION ---
-            firebase.initializeApp(firebaseConfig);
-            const db = firebase.database();
-            
-            handleDataDepositRequest();
-            loadCompanyList(); 
-
-            // --- EVENT LISTENERS ---
-            analyzeBtn.addEventListener('click', handleAnalysisRequest);
-            
-            // --- CORE FUNCTIONS ---
-            
-            function handleDataDepositRequest() {
-                const urlParams = new URLSearchParams(window.location.search);
-                const extensionId = urlParams.get('source_extension_id');
-                if (!extensionId) {
-                    console.log("[Website] No deposit request found in URL. Operating normally.");
-                    return;
-                }
-
-                console.log(`[Website] Deposit request detected from extension ID: ${extensionId}.`);
-                showLoader('Connecting to extension for data deposit...');
-                
-                requestDataWithRetry(extensionId, 15); // Retry for 15 seconds
+        // --- ROBUST EXTENSION COMMUNICATION ---
+        const checkExtensionConnection = () => {
+            if (EXTENSION_ID === 'YOUR_EXTENSION_ID_HERE') {
+                updateConnectionStatus('error', 'Configuration Error: Extension ID has not been set in the website code.');
+                return;
+            }
+            if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+                updateConnectionStatus('error', 'Error: Data Collector extension not detected. Please use a Chromium-based browser (like Chrome or Edge) and ensure the extension is installed.');
+                return;
             }
 
-            function requestDataWithRetry(extensionId, maxAttempts, attempt = 1) {
-                console.log(`[Website] Attempt #${attempt} to contact extension...`);
-                
-                if (!window.chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
-                    if (attempt === 1) alert("This page is ready to receive data, but it seems it was not opened by the required Chrome Extension.");
-                    hideLoader();
-                    return;
+            updateConnectionStatus('disconnected', 'Connecting to Data Collector extension...');
+            chrome.runtime.sendMessage(EXTENSION_ID, { action: 'get-status' }, (response) => {
+                if (chrome.runtime.lastError || !response) {
+                    console.error("Connection Error:", chrome.runtime.lastError?.message || "No response from extension.");
+                    updateConnectionStatus('error', 'Error: Could not connect to the extension. Please ensure it is installed, enabled, and this website has been reloaded.');
+                } else {
+                    const { lastCollectionDate, isScrapingActive } = response.data;
+                    const statusText = `Connected. Last data collection: ${lastCollectionDate ? new Date(lastCollectionDate).toLocaleString() : 'Never'}. ${isScrapingActive ? '(Collection in progress)' : ''}`;
+                    updateConnectionStatus('connected', statusText);
+                    fetchDataFromExtension();
                 }
+            });
+        };
+        
+        const fetchDataFromExtension = () => {
+            chrome.runtime.sendMessage(EXTENSION_ID, { action: 'get-all-data' }, (response) => {
+                if (chrome.runtime.lastError || !response || response.status !== 'success') {
+                    console.error("Data Fetch Error:", chrome.runtime.lastError?.message || "Failed to get data.");
+                    companySelect.innerHTML = '<option>Error fetching data</option>';
+                } else {
+                    allCompanyData = response.data;
+                    populateCompanySelector();
+                    companySelect.dispatchEvent(new Event('change'));
+                }
+            });
+        };
+        
+        const updateConnectionStatus = (status, text) => {
+            connectionStatusEl.className = `status-${status}`;
+            connectionStatusEl.textContent = text;
+        };
 
-                chrome.runtime.sendMessage(extensionId, { action: 'request-data-for-deposit' }, async (response) => {
-                    if (chrome.runtime.lastError) {
-                        console.warn(`[Website] Attempt #${attempt} failed:`, chrome.runtime.lastError.message);
-                        if (attempt < maxAttempts) {
-                            setTimeout(() => requestDataWithRetry(extensionId, maxAttempts, attempt + 1), 1000); // Retry after 1 second
-                        } else {
-                            alert("Failed to connect to the data collection extension after multiple attempts. Please try the collection again.");
-                            hideLoader();
-                        }
-                        return;
-                    }
-
-                    console.log(`[Website] SUCCESS: Connected to extension and received response.`);
-                    if (response && response.success) {
-                        await processDepositedData(response.data);
-                    } else {
-                        console.error("[Website] Extension reported an error or had no data:", response?.error);
-                        alert("The extension had no new data to deposit.");
-                        hideLoader();
-                    }
+        // --- UI & DATA HANDLING ---
+        const populateCompanySelector = () => {
+            const availableCompanies = Object.keys(allCompanyData).map(key => key.replace('nepse_data_', '')).sort();
+            companySelect.innerHTML = '';
+            if (availableCompanies.length === 0) {
+                companySelect.innerHTML = '<option value="">No data collected yet</option>';
+                processDataBtn.disabled = true;
+                companySelect.disabled = true;
+            } else {
+                availableCompanies.forEach(company => {
+                    const option = document.createElement('option');
+                    option.value = company;
+                    option.textContent = company;
+                    companySelect.appendChild(option);
                 });
+                processDataBtn.disabled = false;
+                companySelect.disabled = false;
             }
+        };
 
-            async function processDepositedData(data) {
-                const companyCount = Object.keys(data).length;
-                console.log(`[Website] Received data for ${companyCount} companies.`);
-                showLoader(`Uploading data for ${companyCount} companies to database...`);
-                try {
-                    const uploadPromises = Object.entries(data).map(([symbol, csv]) => 
-                        db.ref(`nepse/data/${symbol}`).set(csv)
-                    );
-                    await Promise.all(uploadPromises);
-                    alert("New company data has been successfully deposited and saved to the database!");
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    await loadCompanyList();
-                } catch (error) {
-                    console.error("Error saving deposited data:", error);
-                    alert("An error occurred while saving the new data.");
-                } finally {
-                    hideLoader();
+        const displayDataPreview = (company) => {
+            const data = allCompanyData[`nepse_data_${company}`];
+            dataPreviewTable.innerHTML = '';
+            if (!data) {
+                dataPreviewTable.innerHTML = '<thead><tr><th>No data available for this company.</th></tr></thead>';
+                return;
+            }
+            const lines = data.trim().split('\n');
+            const header = lines[0].split(',').map(h => h.replace(/"/g, ''));
+            const thead = `<thead><tr>${header.map(h => `<th>${h}</th>`).join('')}</tr></thead>`;
+            const tbody = `<tbody>${lines.slice(1, 11).map(line => { const values = line.split(',').map(v => v.replace(/"/g, '')); return `<tr>${values.map(v => `<td>${v}</td>`).join('')}</tr>`; }).join('')}</tbody>`;
+            dataPreviewTable.innerHTML = thead + tbody;
+        };
+
+        const displayHistory = () => {
+            const analysisHistory = JSON.parse(localStorage.getItem('analysisHistory') || '[]');
+            historyList.innerHTML = '';
+            if (analysisHistory.length === 0) {
+                historyList.innerHTML = '<p class="status-text">No analysis history found.</p>';
+                return;
+            }
+            analysisHistory.reverse().forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'history-item';
+                itemDiv.innerHTML = `<div class="history-item-header"><h4>${item.company}</h4><div class="date">Analyzed: ${new Date(item.analysisDate).toLocaleString()}</div></div><div class="history-item-body">${formatAIResponse(item.analysis)}</div>`;
+                historyList.appendChild(itemDiv);
+            });
+        };
+
+        const saveToHistory = (company, analysis) => {
+            let analysisHistory = JSON.parse(localStorage.getItem('analysisHistory') || '[]');
+            const newEntry = { company, analysis, analysisDate: new Date().toISOString() };
+            analysisHistory.push(newEntry);
+            if (analysisHistory.length > 50) analysisHistory.shift();
+            localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
+            displayHistory();
+        };
+
+        // --- EVENT LISTENERS & ACTIONS ---
+        companySelect.addEventListener('change', () => displayDataPreview(companySelect.value));
+
+        processDataBtn.addEventListener('click', async () => {
+            const selectedCompany = companySelect.value;
+            if (!selectedCompany) return;
+
+            processDataBtn.disabled = true;
+            processDataBtn.textContent = 'Processing...';
+            loader.classList.remove('hidden');
+            analysisResult.innerHTML = '';
+
+            try {
+                const companyData = allCompanyData[`nepse_data_${selectedCompany}`];
+                if (!companyData) throw new Error(`No data found for ${selectedCompany}.`);
+                const latestPrice = getLatestClosingPrice(companyData);
+                if (latestPrice === null) throw new Error("Could not parse the latest price from the data file.");
+                const compactData = getCompactData(companyData);
+                if (compactData.trim().split('\n').length < 20) {
+                    throw new Error(`Insufficient data for analysis (${compactData.trim().split('\n').length - 1} records).`);
                 }
-            }
-            
-            async function loadCompanyList() {
-                showLoader('Loading company list...');
-                try {
-                    const snapshot = await db.ref('nepse/data').once('value');
-                    const data = snapshot.val();
-                    if (data && Object.keys(data).length > 0) {
-                        const companies = Object.keys(data).sort();
-                        companySelect.innerHTML = companies.map(c => `<option value="${c}">${c}</option>`).join('');
-                        companySelect.disabled = false;
-                        analyzeBtn.disabled = false;
-                    } else {
-                        companySelect.innerHTML = '<option>No data in database</option>';
-                    }
-                } catch (error) {
-                    console.error("Error loading company list from Firebase:", error);
-                    companySelect.innerHTML = '<option>Error loading data</option>';
-                } finally {
-                    hideLoader();
-                }
-            }
-
-            async function handleAnalysisRequest() {
-                const companySymbol = companySelect.value;
-                if (!companySymbol) return;
-
-                showLoader('Checking for recent analysis...');
-                aiAnalysisContainer.classList.add('hidden');
-                analyzeBtn.disabled = true;
-
-                try {
-                    const analysisSnapshot = await db.ref(`nepse/analyses/${companySymbol}`).once('value');
-                    const cachedAnalysis = analysisSnapshot.val();
-                    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-
-                    let analysisData;
-                    if (cachedAnalysis && cachedAnalysis.timestamp > oneDayAgo) {
-                        console.log("Using fresh analysis from Firebase cache.");
-                        analysisData = cachedAnalysis.analysisData;
-                    } else {
-                        console.log("Stale or no analysis found. Generating new one.");
-                        analysisData = await generateAndSaveAnalysis(companySymbol);
-                    }
-                    
-                    showLoader('Loading historical data...');
-                    const csvSnapshot = await db.ref(`nepse/data/${companySymbol}`).once('value');
-                    const csvData = csvSnapshot.val();
-                    if (!csvData) throw new Error("Could not find historical data for this company.");
-
-                    const historicalData = parseCSV(csvData);
-                    renderChartAndAnalysis(historicalData, analysisData);
-                    
-                } catch (error) {
-                    console.error("Analysis failed:", error);
-                    chartPlaceholder.textContent = `An error occurred: ${error.message}`;
-                    chartPlaceholder.classList.remove('hidden');
-                    if (stockChart) stockChart.destroy();
-                    stockChart = null;
-                } finally {
-                    hideLoader();
-                    analyzeBtn.disabled = false;
-                }
-            }
-
-            async function generateAndSaveAnalysis(companySymbol) {
-                showLoader('Fetching historical data...');
-                const csvSnapshot = await db.ref(`nepse/data/${companySymbol}`).once('value');
-                const csvData = csvSnapshot.val();
-                if (!csvData) throw new Error("No historical data to analyze.");
-
-                const historicalData = parseCSV(csvData);
-                if(historicalData.length < 20) throw new Error("Insufficient data for a reliable analysis.");
-
-                showLoader('Analyzing with AI (this may take a moment)...');
-                const aiResponse = await callGeminiAPI(historicalData);
-                
-                await db.ref(`nepse/analyses/${companySymbol}`).set({
-                    analysisData: aiResponse,
-                    timestamp: Date.now()
-                });
-                console.log("New analysis saved to Firebase.");
-                return aiResponse;
-            }
-
-            function parseCSV(csvText) {
-                const lines = csvText.trim().split('\n');
-                const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
-                const dateIndex = header.indexOf('Date');
-                const closeIndex = header.indexOf('Close');
-                if (dateIndex === -1 || closeIndex === -1) throw new Error("CSV is missing 'Date' or 'Close' column.");
-
-                return lines.slice(1).map(line => {
-                    const values = line.split(',');
-                    const date = values[dateIndex].replace(/"/g, '').trim();
-                    const close = parseFloat(values[closeIndex].replace(/"/g, '').trim());
-                    return { x: new Date(date).getTime(), y: close };
-                }).filter(d => d.x && !isNaN(d.y)).reverse();
-            }
-            
-            async function callGeminiAPI(historicalData) {
-                const latestDataPoint = historicalData[historicalData.length - 1];
-                const latestPrice = latestDataPoint.y;
-                const compactData = historicalData.map(d => `${new Date(d.x).toISOString().split('T')[0]},${d.y}`).join('\n');
-
-                const prompt = `
-                    Analyze the following historical stock data, ending on ${new Date(latestDataPoint.x).toISOString().split('T')[0]} with a closing price of ${latestPrice}. Provide a detailed future projection and a summary. You must respond with ONLY a valid JSON object. Do not include any text, notes, or markdown backticks. The JSON must have two top-level keys: "projections" and "summary".
-                    1. The "projections" key must be an array of objects. Each object represents a future data point and must have two keys: "date" (a future date string in "YYYY-MM-DD" format) and "price" (a numerical prediction). Provide points for approximately 7, 30, 90, 180, and 365 days from the latest data date.
-                    2. The "summary" key must be an object with keys: "next_week", "next_month", "next_six_months", "next_year". Each of these must be an object with two string keys: "prediction" (e.g., "Bullish trend to ~420.0") and "justification".
-                    Historical Data (Date,Close):
-                    \`\`\`
-                    ${compactData}
-                    \`\`\`
-                `;
-
-                const response = await fetch(GEMINI_API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        "generationConfig": { "responseMimeType": "application/json" }
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorBody = await response.json();
-                    throw new Error(`API request failed: ${errorBody.error.message}`);
-                }
-                
-                const result = await response.json();
-                const responseText = result.candidates[0].content.parts[0].text;
-                return JSON.parse(responseText);
-            }
-            
-            function renderChartAndAnalysis(historicalData, aiResponse) {
-                aiAnalysisContent.innerHTML = '';
-                Object.entries(aiResponse.summary).forEach(([key, value]) => {
-                    const predClass = value.prediction.toLowerCase().includes('up') || value.prediction.toLowerCase().includes('bullish') ? 'up' : 'down';
-                    const item = document.createElement('div');
-                    item.className = 'analysis-item';
-                    item.innerHTML = `<strong>${key.replace(/_/g, ' ')}</strong><p class="prediction-line ${predClass}">${value.prediction}</p><p class="justification">${value.justification}</p>`;
-                    aiAnalysisContent.appendChild(item);
-                });
-                aiAnalysisContainer.classList.remove('hidden');
-
-                const predictionData = aiResponse.projections.map(p => ({ x: new Date(p.date).getTime(), y: p.price }));
-                const combinedPredictionData = [historicalData[historicalData.length - 1], ...predictionData];
-
-                const options = {
-                    series: [
-                        { name: 'Historical Price', type: 'area', data: historicalData },
-                        { name: 'AI Prediction', type: 'line', data: combinedPredictionData }
-                    ],
-                    chart: { height: '100%', type: 'line', toolbar: { show: true }, zoom: { enabled: true }, animations: { enabled: true, easing: 'easeinout', speed: 800 } },
-                    colors: ['#0d6efd', '#198754'],
-                    stroke: { width: [3, 4], curve: 'smooth', dashArray: [0, 8] },
-                    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.7, opacityTo: 0.1, stops: [0, 100] } },
-                    xaxis: { type: 'datetime', labels: { datetimeUTC: false, style: { colors: '#606770' } } },
-                    yaxis: { labels: { formatter: (val) => val ? val.toFixed(2) : '0', style: { colors: '#606770' } } },
-                    tooltip: { x: { format: 'dd MMM yy' }, theme: 'light' },
-                    legend: { position: 'top', horizontalAlign: 'left' },
-                    grid: { borderColor: '#e0e0e0', strokeDashArray: 4 }
-                };
-
-                chartPlaceholder.classList.add('hidden');
-                if (stockChart) stockChart.destroy();
-                stockChart = new ApexCharts(document.querySelector("#stock-chart"), options);
-                stockChart.render();
-            }
-
-            function showLoader(text) {
-                loaderText.textContent = text;
-                loaderOverlay.classList.remove('hidden');
-            }
-
-            function hideLoader() {
-                loaderOverlay.classList.add('hidden');
+                const prediction = await callGeminiAPI(compactData, latestPrice);
+                analysisResult.innerHTML = formatAIResponse(prediction);
+                saveToHistory(selectedCompany, prediction);
+            } catch (error) {
+                console.error('Analysis Error:', error);
+                analysisResult.innerHTML = `<p class="error-text">${error.message}</p>`;
+            } finally {
+                loader.classList.add('hidden');
+                startCooldownTimer(10);
             }
         });
-    </script>
 
+        const startCooldownTimer = (seconds) => {
+            if (cooldownInterval) clearInterval(cooldownInterval);
+            let remaining = seconds;
+            processDataBtn.disabled = true;
+            cooldownInterval = setInterval(() => {
+                if (remaining > 0) {
+                    processDataBtn.textContent = `Please wait (${remaining--}s)`;
+                } else {
+                    clearInterval(cooldownInterval);
+                    processDataBtn.disabled = false;
+                    processDataBtn.textContent = 'Analyze with AI';
+                }
+            }, 1000);
+        };
+        
+        // --- UTILITY & API FUNCTIONS ---
+        const getCompactData = (csvText) => {
+            if (!csvText) return '';
+            const lines = csvText.trim().split('\n');
+            const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+            const [dateIndex, closeIndex, volumeIndex] = ['Date', 'Close', 'Volume'].map(h => header.indexOf(h));
+            if ([dateIndex, closeIndex, volumeIndex].includes(-1)) return csvText;
+            const newHeader = "Date\tClose\tVolume";
+            const newLines = lines.slice(1).map(line => {
+                if (!line.trim()) return null;
+                const values = line.split(',');
+                if (values.length < Math.max(dateIndex, closeIndex, volumeIndex) + 1) return null;
+                const [date, close, volume] = [values[dateIndex], values[closeIndex], values[volumeIndex]].map(v => (v || '').replace(/"/g, '').trim());
+                if (!date || !close || !volume) return null;
+                return `${date}\t${close}\t${volume.replace(/,/g, '')}`;
+            }).filter(Boolean);
+            return newHeader + '\n' + newLines.join('\n');
+        };
+        
+        const getLatestClosingPrice = (csvText) => {
+            if (!csvText) return null;
+            const lines = csvText.trim().split('\n');
+            if (lines.length < 2) return null;
+            const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+            const closeIndex = header.indexOf('Close');
+            if (closeIndex === -1) return null;
+            const latestDataLine = lines[1].split(',');
+            return parseFloat(latestDataLine[closeIndex].replace(/"/g, '').trim());
+        };
+
+        const formatAIResponse = (responseText) => {
+            if (!responseText) return '<p>No analysis available.</p>';
+            try {
+                const parsed = typeof responseText === 'string' ? JSON.parse(responseText) : responseText;
+                return Object.entries(parsed).map(([timeframe, details]) => {
+                    const predClass = details.prediction.toLowerCase().includes('up') ? 'up' : 'down';
+                    const percentClass = String(details.percentage_change).startsWith('+') ? 'up' : 'down';
+                    return `<div class="analysis-item"><strong>${timeframe.replace(/_/g, ' ')}:</strong><div class="prediction-line"><span class="prediction ${predClass}">${details.prediction} to ~${details.projected_price}</span><span class="percentage ${percentClass}">${details.percentage_change}</span></div><div class="confidence-line"><span>Confidence:</span><div class="confidence-bar-bg"><div class="confidence-bar-fill" style="width: ${details.confidence_percentage}%;"></div></div><span>${details.confidence_percentage}%</span></div><p class="justification">${details.justification}</p></div>`;
+                }).join('');
+            } catch (e) {
+                console.error("Could not parse AI response as JSON:", e, responseText);
+                return `<p class="error-text">The AI returned a response in an unexpected format. Please try again.</p>`; 
+            }
+        };
+
+        const callGeminiAPI = async (data, latestPrice) => {
+            const prompt = `Analyze the historical stock data provided below. The most recent closing price is ${latestPrice}. Provide a detailed analysis for multiple timeframes.
+RESPONSE FORMAT: You must respond with ONLY a valid JSON object. Do not include any text, notes, or markdown formatting like \`\`\`json before or after the JSON. The root of the object must contain keys: "next_day", "next_week", "next_month", "next_six_months".
+Each key's value must be an object with exactly these five keys: "prediction" (string: "Up", "Down", or "Sideways"), "projected_price" (number), "percentage_change" (string, e.g., "+1.5%"), "confidence_percentage" (number, 0-100), and "justification" (string, a brief explanation).
+DATA:
+${data}`;
+
+            const response = await fetch(GEMINI_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { responseMimeType: "application/json" }
+                })
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.json();
+                throw new Error(`API Error ${response.status}: ${errorBody.error.message}`);
+            }
+            const result = await response.json();
+            if (result.candidates && result.candidates.length > 0) {
+                return result.candidates[0].content.parts[0].text;
+            }
+            throw new Error("The AI model did not provide a prediction.");
+        };
+
+        // --- INITIALIZATION ---
+        checkExtensionConnection();
+        displayHistory();
+    });
+    </script>
 </body>
 </html>
