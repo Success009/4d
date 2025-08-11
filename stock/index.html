@@ -139,8 +139,7 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         // --- CONFIGURATION ---
-        // CRITICAL: Replace with your extension's ID from chrome://extensions
-        const EXTENSION_ID = 'YOUR_EXTENSION_ID_HERE'; 
+        const EXTENSION_ID = 'dhlnngcfipnlgbiagipkkehmjnefjpbj'; 
         const GEMINI_API_KEY = 'AIzaSyBqopZ5Q_RKyzYYMI-LmcbSaJwONy16TzU';
         const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
         let allCompanyData = {};
@@ -157,10 +156,6 @@
 
         // --- ROBUST EXTENSION COMMUNICATION ---
         const checkExtensionConnection = () => {
-            if (EXTENSION_ID === 'YOUR_EXTENSION_ID_HERE') {
-                updateConnectionStatus('error', 'Configuration Error: Extension ID has not been set in the website code.');
-                return;
-            }
             if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
                 updateConnectionStatus('error', 'Error: Data Collector extension not detected. Please use a Chromium-based browser (like Chrome or Edge) and ensure the extension is installed.');
                 return;
