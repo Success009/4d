@@ -381,7 +381,7 @@
         ctx.fillText(`${packet.senderContact}`, 1450, 490);
         ctx.fillText(`${packet.senderAddress}`, 320, 585);
         ctx.fillText(`${packet.receiverAddress}`, 1158, 586);
-        ctx.fillText(`${packet.billItem}`, 150, 865)
+        ctx.fillText(`${packet.billItem}    ${packet.trackingNumber}`, 150, 865)
         ctx.font = 'bold 58px Arial';
         ctx.fillText(`${packet.price}.00`, 230, 995);
         const amountInWords = numberToWords(packet.price);
