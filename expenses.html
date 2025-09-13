@@ -166,6 +166,8 @@
         };
         const app = firebase.initializeApp(firebaseConfig);
         const database = app.database();
+        const auth = firebase.auth();
+        const ADMIN_UID = "CF4g7aQ7WFPK6kOEMHxxbMXD9mp2";
         let allExpenses = [];
         let allIncome = [];
         let filteredExpenses = [];
@@ -367,6 +369,17 @@
                 addSection.classList.remove('show');
             }
         }
+        auth.onAuthStateChanged(user => {
+            if (user && user.uid === ADMIN_UID) {
+                // User is the correct admin. Allow the page to continue loading.
+                console.log("Admin access verified for expenses page.");
+            } else {
+                // User is either not logged in, or is the wrong user.
+                // Redirect them to the main login page.
+                console.log("Access denied. Redirecting to login page...");
+                window.location.href = 'https://4direction.com.np/income.html';
+            }
+        });
     </script>
 </body>
 </html>
