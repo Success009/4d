@@ -96,9 +96,100 @@
       font-style: italic;
       background-color: #f8f8f8;
     }
+    .login-overlay {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 2000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.login-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.login-modal {
+  background-color: white;
+  padding: 2.5rem;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  transform: scale(0.95);
+  transition: transform 0.3s ease;
+}
+
+.login-overlay.visible .login-modal {
+    transform: scale(1);
+}
+
+.login-modal h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.login-modal p {
+  margin-bottom: 1.5rem;
+  color: #666;
+}
+
+.input-group {
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+#loginButton {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: #4361ee;
+  color: white;
+  transition: background-color 0.2s;
+}
+
+#loginButton:hover {
+  background-color: #3f37c9;
+}
+
+.login-error {
+  color: #d90429;
+  margin-top: 1rem;
+  height: 1.2rem; /* Reserve space */
+  font-size: 0.9rem;
+}
   </style>
   <title>By Success</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
 </head>
 
@@ -174,6 +265,22 @@
   <div id="totalPrice"></div>
   <div id="resultsTitle">Results:</div>
   <div id="results"></div>
+  <div id="loginOverlay" class="login-overlay">
+  <div class="login-modal">
+    <h2>Admin Login</h2>
+    <p>Four Direction Travels And Tours</p>
+    <div class="input-group">
+      <label for="adminEmail">Email</label>
+      <input type="email" id="adminEmail" value="fourdirection02@gmail.com" disabled>
+    </div>
+    <div class="input-group">
+      <label for="adminPassword">Password</label>
+      <input type="password" id="adminPassword" placeholder="Enter your password" autofocus>
+    </div>
+    <button id="loginButton">Login</button>
+    <p id="loginError" class="login-error"></p>
+  </div>
+</div>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
@@ -634,13 +741,68 @@ Item: ${packet.courierTicket}`;
       const totalPriceElement = document.getElementById('totalPrice');
       totalPriceElement.textContent = `Total Price: RS.${total.toFixed(2)}`;
     }
-    const packetsRef = database.ref('packets');
-    packetsRef.on('value', (snapshot) => {
-      packets = [];
-      snapshot.forEach((childSnapshot) => {
-        const packet = childSnapshot.val();
-        packets.push(packet);
-      });
+    function initializeApp() {
+        console.log("Admin verified. Initializing application...");
+        // This is your original data loading logic, now moved inside this function.
+        const packetsRef = database.ref('packets');
+        packetsRef.on('value', (snapshot) => {
+            packets = [];
+            snapshot.forEach((childSnapshot) => {
+                const packet = childSnapshot.val();
+                packets.push(packet);
+            });
+            displayResults();
+            applyFilter();
+        });
+    }
+
+    // --- ADMIN AUTHENTICATION GUARD ---
+    const auth = firebase.auth();
+    const loginOverlay = document.getElementById('loginOverlay');
+    const loginButton = document.getElementById('loginButton');
+    const adminPasswordInput = document.getElementById('adminPassword');
+    const loginError = document.getElementById('loginError');
+    const ADMIN_UID = "CF4g7aQ7WFPK6kOEMHxxbMXD9mp2";
+
+    function performLogin() {
+        const password = adminPasswordInput.value;
+        const email = "fourdirection02@gmail.com";
+        loginError.textContent = ''; // Clear previous errors
+
+        if (!password) {
+            loginError.textContent = 'Password is required.';
+            return;
+        }
+
+        auth.signInWithEmailAndPassword(email, password)
+            .catch(error => {
+                console.error("Login failed:", error.message);
+                loginError.textContent = 'Login failed: Incorrect password.';
+            });
+    }
+
+    loginButton.addEventListener('click', performLogin);
+    adminPasswordInput.addEventListener('keyup', (event) => {
+        if (event.key === "Enter") {
+            performLogin();
+        }
+    });
+
+    auth.onAuthStateChanged(user => {
+        if (user && user.uid === ADMIN_UID) {
+            // User is logged in AND is the correct admin.
+            loginOverlay.classList.remove('visible');
+            initializeApp();
+        } else {
+            // User is not logged in, or is the wrong user.
+            if (user) {
+                // Log out any incorrect user automatically
+                auth.signOut();
+            }
+            loginOverlay.classList.add('visible');
+            adminPasswordInput.focus();
+        }
+    });
       displayResults();
       applyFilter();
     });
