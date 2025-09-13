@@ -203,6 +203,7 @@
     <label>Search:</label>
     <input type="text" id="searchInput">
     <div>
+      <button id="Search" onclick="handleSearchClick()">Search</button>
       <button id="Clear" onclick="clearSearch(); showEntrySection()">Clear Search</button>
     </div>
   </div>
@@ -461,11 +462,25 @@
         timeout = setTimeout(() => func.apply(this, args), wait);
       };
     }
-    document.getElementById('searchInput').addEventListener('input', debounce(() => {
+    function handleSearchClick() {
       searchData();
       hideEntrySection();
-      calculateAndDisplayTotal();
-    }, 300));
+      const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+      const searchResults = packets.filter(packet =>
+        Object.values(packet).some(val =>
+          val && val.toString().toLowerCase().includes(searchTerm)
+        )
+      );
+      calculateAndDisplayTotal(searchResults);
+    }
+    document.getElementById('searchInput').addEventListener('keyup', function(event) {
+        if (event.key === "Enter") {
+            // Prevent the default form submission behavior
+            event.preventDefault();
+            // Trigger the search button's click action
+            document.getElementById('Search').click();
+        }
+    });
     function downloadBill(index) {
       const packet = packets[index];
       const canvas = document.createElement('canvas');
