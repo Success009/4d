@@ -785,14 +785,17 @@ Item: ${packet.courierTicket}`;
     function performLogin() {
         const password = adminPasswordInput.value;
         const email = "fourdirection02@gmail.com";
-        loginError.textContent = ''; // Clear previous errors
+        loginError.textContent = '';
 
         if (!password) {
             loginError.textContent = 'Password is required.';
             return;
         }
-
-        auth.signInWithEmailAndPassword(email, password)
+        auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+            .then(() => {
+                // Now that persistence is set, sign the user in.
+                return auth.signInWithEmailAndPassword(email, password);
+            })
             .catch(error => {
                 console.error("Login failed:", error.message);
                 loginError.textContent = 'Login failed: Incorrect password.';
