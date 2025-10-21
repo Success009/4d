@@ -65,7 +65,7 @@
     <div class="container">
         <div class="header">
             <h1 class="title">Smart Expense Tracker</h1>
-            <button class="nav-button" onclick="window.location.href = 'income.html';">Business</button>
+            <button class="nav-button" onclick="window.location.href = 'index.html';">Business</button>
         </div>
         <div class="controls">
             <div class="search-section">
@@ -144,9 +144,9 @@
                         <tr>
                             <th>Date</th>
                             <th>Amount</th>
-                            <th>Update</th>
-                            <th>Name</th>
-                            <th>Receiver Address</th>
+                            <th>Reference</th>
+                            <th>Client/Passenger</th>
+                            <th>Details/Route</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -237,9 +237,31 @@
             if (!keyword) return data;
             return data.filter(item => {
                 if (isIncome) {
-                    const searchFields = [item.date, item.price, item.update, item.receiverName, item.receiverAddress];
+                    // Fields common to both or only in courier
+                    let searchFields = [
+                        item.recNo,
+                        item.date, 
+                        item.price, 
+                        item.update, 
+                        item.receiverName, 
+                        item.receiverAddress,
+                        item.senderName,
+                    ];
+                    // Add ticketing-specific fields if they exist
+                    if (item.entryType === 'ticketing') {
+                        searchFields.push(
+                            item.passengerName,
+                            item.pnrNumber,
+                            item.ticketNumber
+                        );
+                        if (item.flightSegments && Array.isArray(item.flightSegments)) {
+                           item.flightSegments.forEach(seg => {
+                               searchFields.push(seg.airline, seg.flightNo, seg.depAirport, seg.arrAirport);
+                           });
+                        }
+                    }
                     return searchFields.some(field => field && field.toString().toLowerCase().includes(keyword));
-                } else {
+                } else { // Expenses
                     const searchFields = [item.date, item.price, item.details];
                     return searchFields.some(field => field && field.toString().toLowerCase().includes(keyword));
                 }
@@ -296,12 +318,32 @@
             filteredIncome.sort((a, b) => new Date(b.date) - new Date(a.date));
             filteredIncome.forEach(income => {
                 const row = document.createElement('tr');
+                
+                let reference = '-';
+                let name = '-';
+                let details = '-';
+
+                // Handle new 'ticketing' entries
+                if (income.entryType === 'ticketing') {
+                    reference = income.pnrNumber || income.ticketNumber || '-';
+                    name = income.passengerName || '-';
+                    if (income.flightSegments && income.flightSegments.length > 0) {
+                        const firstSegment = income.flightSegments[0];
+                        const lastSegment = income.flightSegments[income.flightSegments.length - 1];
+                        details = `${firstSegment.depAirport || '?'} → ${lastSegment.arrAirport || '?'}`;
+                    }
+                } else { // Handle old 'courier' entries
+                    reference = income.update || '-';
+                    name = income.receiverName || income.senderName || '-';
+                    details = income.receiverAddress || '-';
+                }
+
                 row.innerHTML = `
                     <td>${income.date}</td>
-                    <td>Rs ${parseFloat(income.price).toFixed(2)}</td>
-                    <td>${income.update || '-'}</td>
-                    <td>${income.receiverName || '-'}</td>
-                    <td>${income.receiverAddress || '-'}</td>
+                    <td>Rs ${parseFloat(income.price || 0).toFixed(2)}</td>
+                    <td>${reference}</td>
+                    <td>${name}</td>
+                    <td>${details}</td>
                 `;
                 tbody.appendChild(row);
             });
@@ -378,7 +420,7 @@
                 // User is either not logged in, or is the wrong user.
                 // Redirect them to the main login page.
                 console.log("Access denied. Redirecting to login page...");
-                window.location.href = 'https://4direction.com.np/income.html';
+                window.location.href = 'index.html';
             }
         });
     </script>
