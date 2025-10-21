@@ -4,20 +4,107 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    :root {
+      --bg-color: #47c8ff;
+      --text-color: #333;
+      --text-color-light: #666;
+      --title-color: #FC2E2E;
+      --accent-yellow: #ffc107;
+      --accent-green: #4caf50;
+      --accent-red: #e61414;
+      --accent-red-alt: #e74c3c;
+      --accent-orange: #ff8800;
+      --accent-blue: #4361ee;
+      --accent-blue-hover: #3f37c9;
+      --accent-cyan: #00E3E1;
+      --input-bg: #fff;
+      --input-text: #333;
+      --input-border: #ccc;
+      --packet-bg: #fff;
+      --packet-border: #ccc;
+      --no-results-bg: #f8f8f8;
+      --highlight-bg: yellow;
+      --highlight-text: #333;
+      --modal-bg: #fff;
+      --overlay-bg: rgba(0, 0, 0, 0.7);
+      --shadow-color: rgba(0, 0, 0, 0.2);
+      --toggle-bg: #e0e0e0;
+      --toggle-active-bg: var(--accent-blue);
+      --toggle-active-text: #fff;
+      --itinerary-border: #e0e0e0;
+      --ai-box-bg: #fff;
+      --ai-box-shadow: rgba(0,0,0,0.15);
+    }
+
+    body.dark-mode {
+      --bg-color: #1a1c20;
+      --text-color: #e0e0e0;
+      --text-color-light: #aaa;
+      --title-color: #ff5c5c;
+      --accent-yellow: #ffc107;
+      --accent-green: #388e3c;
+      --accent-red: #d32f2f;
+      --accent-red-alt: #c0392b;
+      --accent-orange: #f57c00;
+      --accent-blue: #536dfe;
+      --accent-blue-hover: #3d5afe;
+      --accent-cyan: #00bcd4;
+      --input-bg: #2c2f36;
+      --input-text: #e0e0e0;
+      --input-border: #555;
+      --packet-bg: #22252a;
+      --packet-border: #444;
+      --no-results-bg: #22252a;
+      --highlight-bg: #b8860b;
+      --highlight-text: #fff;
+      --modal-bg: #2c2f36;
+      --overlay-bg: rgba(0, 0, 0, 0.8);
+      --shadow-color: rgba(0, 0, 0, 0.4);
+      --toggle-bg: #333;
+      --toggle-active-bg: var(--accent-blue);
+      --toggle-active-text: #fff;
+      --itinerary-border: #444;
+      --ai-box-bg: #2c2f36;
+      --ai-box-shadow: rgba(0,0,0,0.3);
+    }
+
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
-      background-color: #47c8ff;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
     }
+
+    #theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid var(--input-border);
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      font-size: 20px;
+      cursor: pointer;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+    }
+
     #Search {
-      background-color: #ffc107; /* A nice yellow color */
-      color: #000; /* Black text for better readability on yellow */
+      background-color: var(--accent-yellow);
+      color: #000;
     }
+
     #title {
       text-align: center;
       font-size: 36px;
       font-weight: bold;
-      color: #FC2E2E;
+      color: var(--title-color);
       width: 100%;
     }
 
@@ -29,32 +116,45 @@
 
     input,
     button,
-    select {
+    select,
+    textarea {
       margin-bottom: 10px;
       padding: 8px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--input-border);
       border-radius: 4px;
       width: 300px;
+      transition: background-color 0.3s, color 0.3s, border-color 0.3s;
     }
 
-    .tracking-group {
+    input[type="datetime-local"] {
+        width: 300px;
+    }
+
+    input,
+    select,
+    textarea {
+      background-color: var(--input-bg);
+      color: var(--input-text);
+    }
+
+    .dynamic-input-group {
       display: flex;
       align-items: center;
       gap: 5px;
       margin-bottom: 10px;
     }
 
-    .tracking-input {
+    .dynamic-input {
       margin-bottom: 0 !important;
     }
 
-    .tracking-group button {
+    .dynamic-input-group button {
       width: 30px !important;
       padding: 8px 0;
     }
 
     button {
-      background-color: #4caf50;
+      background-color: var(--accent-green);
       color: white;
       cursor: pointer;
       width: 100px;
@@ -66,30 +166,41 @@
     }
 
     .packet {
-      border: 1px solid #ccc;
+      border: 1px solid var(--packet-border);
       padding: 10px;
       margin-bottom: 10px;
-      background-color: white;
+      background-color: var(--packet-bg);
     }
 
     .packet p {
-      margin: 0;
+      margin: 5px 0;
+      word-wrap: break-word;
     }
+    
+    .packet .entry-type-header {
+      font-weight: bold;
+      font-size: 1.1em;
+      color: var(--accent-blue);
+      margin-bottom: 10px;
+    }
+
 
     .packet button {
       margin-top: 5px;
+      margin-right: 5px;
     }
 
     #Clear {
-      background-color: #e61414;
+      background-color: var(--accent-red);
     }
 
     #Save {
-      background-color: #ff8800;
+      background-color: var(--accent-orange);
     }
 
     .highlight {
-      background-color: yellow;
+      background-color: var(--highlight-bg);
+      color: var(--highlight-text);
       font-weight: bold;
     }
 
@@ -97,110 +208,259 @@
       padding: 15px;
       text-align: center;
       font-style: italic;
-      background-color: #f8f8f8;
+      background-color: var(--no-results-bg);
     }
+    
+    #mode-toggle {
+        display: flex;
+        justify-content: center;
+        margin: 20px 0;
+    }
+
+    .toggle-btn {
+        padding: 10px 20px;
+        border: 1px solid var(--input-border);
+        background-color: var(--toggle-bg);
+        color: var(--text-color);
+        cursor: pointer;
+        transition: background-color 0.3s, color 0.3s;
+        width: 150px;
+    }
+
+    .toggle-btn:first-child {
+        border-top-left-radius: 5px;
+        border-bottom-left-radius: 5px;
+    }
+
+    .toggle-btn:last-child {
+        border-top-right-radius: 5px;
+        border-bottom-right-radius: 5px;
+        border-left: none;
+    }
+
+    .toggle-btn.active {
+        background-color: var(--toggle-active-bg);
+        color: var(--toggle-active-text);
+        font-weight: bold;
+    }
+
+    .flight-segment {
+        border: 1px solid var(--input-border);
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background-color: var(--input-bg);
+    }
+    .flight-segment h4 {
+        margin-top: 0;
+        border-bottom: 1px solid var(--input-border);
+        padding-bottom: 5px;
+        margin-bottom: 10px;
+    }
+    .segment-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .segment-row input {
+        flex: 1;
+        min-width: 200px;
+        width: auto;
+    }
+
+    .itinerary-display {
+      border: 1px solid var(--itinerary-border);
+      border-radius: 5px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    .itinerary-summary {
+        font-size: 0.9em;
+        color: var(--text-color-light);
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px dashed var(--itinerary-border);
+    }
+    .itinerary-segment, .itinerary-layover {
+        margin-bottom: 8px;
+    }
+    .itinerary-segment span {
+        font-weight: bold;
+    }
+    .itinerary-layover {
+        color: var(--accent-orange);
+        font-style: italic;
+        padding-left: 20px;
+    }
+
+    .fare-details {
+      display: flex;
+      gap: 10px;
+    }
+    .fare-details input {
+      width: 145px;
+    }
+
     .login-overlay {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  z-index: 2000;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
-}
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--overlay-bg);
+      z-index: 2000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
 
-.login-overlay.visible {
-  opacity: 1;
-  visibility: visible;
-}
+    .login-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+    }
 
-.login-modal {
-  background-color: white;
-  padding: 2.5rem;
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-  width: 90%;
-  max-width: 400px;
-  text-align: center;
-  transform: scale(0.95);
-  transition: transform 0.3s ease;
-}
+    .login-modal {
+      background-color: var(--modal-bg);
+      padding: 2.5rem;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px var(--shadow-color);
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      transform: scale(0.95);
+      transition: transform 0.3s ease, background-color 0.3s;
+    }
 
-.login-overlay.visible .login-modal {
-    transform: scale(1);
-}
+    .login-overlay.visible .login-modal {
+      transform: scale(1);
+    }
 
-.login-modal h2 {
-  margin-top: 0;
-  margin-bottom: 0.5rem;
-  color: #333;
-}
+    .login-modal h2 {
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      color: var(--text-color);
+    }
 
-.login-modal p {
-  margin-bottom: 1.5rem;
-  color: #666;
-}
+    .login-modal p {
+      margin-bottom: 1.5rem;
+      color: var(--text-color-light);
+    }
 
-.input-group {
-  margin-bottom: 1rem;
-  text-align: left;
-}
+    .input-group {
+      margin-bottom: 1rem;
+      text-align: left;
+    }
 
-.input-group label {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-weight: 500;
-  font-size: 0.9rem;
-}
+    .input-group input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--input-border);
+      border-radius: 4px;
+    }
 
-.input-group input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
+    #loginButton {
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background-color: var(--accent-blue);
+      color: white;
+      transition: background-color 0.2s;
+    }
 
-#loginButton {
-  width: 100%;
-  padding: 0.75rem;
-  font-size: 1rem;
-  font-weight: 600;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  background-color: #4361ee;
-  color: white;
-  transition: background-color 0.2s;
-}
+    #loginButton:hover {
+      background-color: var(--accent-blue-hover);
+    }
 
-#loginButton:hover {
-  background-color: #3f37c9;
-}
+    .login-error {
+      color: var(--accent-red);
+      margin-top: 1rem;
+      height: 1.2rem;
+      font-size: 0.9rem;
+    }
 
-.login-error {
-  color: #d90429;
-  margin-top: 1rem;
-  height: 1.2rem; /* Reserve space */
-  font-size: 0.9rem;
-}
+    /* AI STYLES */
+    .ai-controls {
+      padding: 15px;
+      margin: 10px 0;
+      border: 1px dashed var(--input-border);
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 300px;
+    }
+    .ai-controls button {
+      width: 100%;
+    }
+    .ai-controls input[type="file"] {
+      width: 100%;
+    }
+
+    #ai-assistant-box {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 300px;
+      background-color: var(--ai-box-bg);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px var(--ai-box-shadow);
+      padding: 15px;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(20px);
+      transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+    }
+    #ai-assistant-box.visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    #ai-assistant-box h4 {
+      margin: 0 0 10px 0;
+      font-size: 1rem;
+    }
+    #ai-assistant-box p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--text-color-light);
+    }
+    #ai-assistant-close {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: var(--text-color-light);
+    }
   </style>
   <title>By Success</title>
+  <script type="module">
+    import { GoogleGenAI, Type } from "https://esm.run/@google/genai";
+    window.GoogleGenAI = GoogleGenAI;
+    window.GenaiType = Type;
+  </script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
 </head>
 
 <body>
+  <button id="theme-toggle" title="Toggle dark/light mode">🌙</button>
   <div id="title">Four Direction Travels And Tours</div>
   <div class="expenses">
     <button onclick="window.location.href='expenses.html';"
-      style="background-color: #00E3E1; color: #000000;">In/Ex</button>
+      style="background-color: var(--accent-cyan); color: #000000;">In/Ex</button>
   </div>
   <div id="searchArea">
     <label>Search:</label>
@@ -210,47 +470,100 @@
       <button id="Clear" onclick="clearSearch(); showEntrySection()">Clear Search</button>
     </div>
   </div>
+  
+  <div id="mode-toggle">
+    <button id="courier-mode-btn" class="toggle-btn active" onclick="setMode('courier')">Courier</button>
+    <button id="ticketing-mode-btn" class="toggle-btn" onclick="setMode('ticketing')">Ticketing</button>
+  </div>
+
   <div id="entrySection">
+    <!-- AI Controls -->
+    <div class="ai-controls">
+      <label for="imageUpload">Autofill with AI</label>
+      <input type="file" id="imageUpload" accept="image/*,application/pdf">
+      <button id="autofillBtn" onclick="handleAutofill()">Analyze Image</button>
+    </div>
+
     <div>
+      <!-- Common Fields -->
       <label>Date:</label>
       <input type="date" id="date">
       <label>Rec NO:</label>
       <input type="number" id="recNo">
       <label>Email:</label>
       <input type="text" id="email">
-      <label>Sender Name:</label>
-      <input type="text" id="senderName">
-      <label>Sender Address:</label>
-      <input type="text" id="senderAddress">
-      <label>Sender Contact Number:</label>
-      <input type="number" id="senderContact">
-      <label>Weight KG:</label>
-      <input type="text" id="weightTicket">
       <label>Price:</label>
       <input type="number" id="price">
-      <label>Receiver Name:</label>
-      <input type="text" id="receiverName">
-      <label>Receiver Address:</label>
-      <input type="text" id="receiverAddress">
-      <label>Receiver Contact Number:</label>
-      <input type="number" id="receiverContact">
-      <label>Gateway:</label>
-      <input type="text" id="update">
-      <label>Bill Item</label>
-      <input type="text" id="billItem">
-      <label>Tracking Number:</label>
-      <div id="trackingInputs">
-        <div class="tracking-group">
-          <input type="text" id="trackingNumber" class="tracking-input">
-          <button type="button" onclick="addTrackingInput()" style="width: 30px; background-color: #4caf50;">+</button>
+
+      <!-- Courier Specific Fields -->
+      <div id="courierForm">
+        <label>Sender Name:</label>
+        <input type="text" id="senderName">
+        <label>Sender Address:</label>
+        <input type="text" id="senderAddress">
+        <label>Sender Contact Number:</label>
+        <input type="number" id="senderContact">
+        <label>Weight KG:</label>
+        <input type="text" id="weightTicket">
+        <label>Receiver Name:</label>
+        <input type="text" id="receiverName">
+        <label>Receiver Address:</label>
+        <input type="text" id="receiverAddress">
+        <label>Receiver Contact Number:</label>
+        <input type="number" id="receiverContact">
+        <label>Gateway:</label>
+        <input type="text" id="update">
+        <label>Bill Item</label>
+        <input type="text" id="billItem">
+        <label>Tracking Number:</label>
+        <div id="trackingInputs">
+          <div class="dynamic-input-group">
+            <input type="text" id="trackingNumber" class="dynamic-input">
+            <button type="button" onclick="addTrackingInput()"
+              style="width: 30px; background-color: var(--accent-green);">+</button>
+          </div>
+        </div>
+        <label>Delivered Date:</label>
+        <input type="date" id="deliveredDate">
+        <label>Item:</label>
+        <div id="aboutCourierTicket">
+          <textarea id="courierTicket" rows="5" cols="40"></textarea>
         </div>
       </div>
-      <label>Delivered Date:</label>
-      <input type="date" id="deliveredDate">
-      <label>Item:</label>
-      <div id="aboutCourierTicket">
-        <textarea id="courierTicket" rows="5" cols="40"></textarea>
+
+      <!-- Ticketing Specific Fields -->
+      <div id="ticketingForm" style="display: none;">
+        <label>Passenger Name:</label>
+        <input type="text" id="passengerName">
+        <label>Passenger Contact:</label>
+        <input type="number" id="passengerContact">
+        <label>PNR / Booking Reference:</label>
+        <input type="text" id="pnrNumber">
+        <label>Ticket Number:</label>
+        <input type="text" id="ticketNumber">
+        <label>Trip Type:</label>
+        <select id="tripType">
+            <option value="ONE_WAY">One Way</option>
+            <option value="ROUND_TRIP">Round Trip</option>
+        </select>
+        <label>Fare Details:</label>
+        <div class="fare-details">
+            <input type="number" id="baseFare" placeholder="Base Fare">
+            <input type="number" id="taxes" placeholder="Taxes">
+        </div>
+
+        <label>Flight Segments:</label>
+        <div id="flightSegmentsContainer">
+            <!-- Flight segments will be added here dynamically -->
+        </div>
+        <button type="button" onclick="addFlightSegment()" style="width: 300px;">+ Add Flight Segment</button>
+
+        <label>Luggage Weight:</label>
+        <input type="text" id="luggageWeight">
+        <label>Remarks:</label>
+        <textarea id="remarks" rows="5" cols="40"></textarea>
       </div>
+      
       <div id="updateButton">
         <button id="Save" onclick="saveData()">Save</button>
       </div>
@@ -269,22 +582,30 @@
   <div id="totalPrice"></div>
   <div id="resultsTitle">Results:</div>
   <div id="results"></div>
+  
   <div id="loginOverlay" class="login-overlay">
-  <div class="login-modal">
-    <h2>Admin Login</h2>
-    <p>Four Direction Travels And Tours</p>
-    <div class="input-group">
-      <label for="adminEmail">Email</label>
-      <input type="email" id="adminEmail" value="fourdirection02@gmail.com" disabled>
+    <div class="login-modal">
+      <h2>Admin Login</h2>
+      <p>Four Direction Travels And Tours</p>
+      <div class="input-group">
+        <label for="adminEmail">Email</label>
+        <input type="email" id="adminEmail" value="fourdirection02@gmail.com" disabled>
+      </div>
+      <div class="input-group">
+        <label for="adminPassword">Password</label>
+        <input type="password" id="adminPassword" placeholder="Enter your password" autofocus>
+      </div>
+      <button id="loginButton">Login</button>
+      <p id="loginError" class="login-error"></p>
     </div>
-    <div class="input-group">
-      <label for="adminPassword">Password</label>
-      <input type="password" id="adminPassword" placeholder="Enter your password" autofocus>
-    </div>
-    <button id="loginButton">Login</button>
-    <p id="loginError" class="login-error"></p>
   </div>
-</div>
+
+  <div id="ai-assistant-box">
+      <button id="ai-assistant-close" onclick="hideAiMessage()">×</button>
+      <h4>AI Assistant</h4>
+      <p id="ai-assistant-message">Ready to help!</p>
+  </div>
+
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
@@ -300,11 +621,29 @@
     const database = firebase.database();
     let packets = [];
     let searchTerm = '';
+    let currentMode = 'courier';
+    window.geminiApiKey = null;
+
+    function setMode(mode) {
+        currentMode = mode;
+        localStorage.setItem('entryMode', mode);
+        document.getElementById('courierForm').style.display = mode === 'courier' ? 'block' : 'none';
+        document.getElementById('ticketingForm').style.display = mode === 'ticketing' ? 'block' : 'none';
+        document.getElementById('courier-mode-btn').classList.toggle('active', mode === 'courier');
+        document.getElementById('ticketing-mode-btn').classList.toggle('active', mode === 'ticketing');
+        clearInputs(false); 
+    }
+    window.setMode = setMode;
+
     function saveData() {
-      const requiredInputs = ['recNo', 'senderName', 'senderContact', 'senderAddress', 'price'];
+      const requiredInputs = currentMode === 'courier' 
+        ? ['recNo', 'senderName', 'senderContact', 'senderAddress', 'price']
+        : ['recNo', 'passengerName', 'passengerContact', 'price'];
+
       let requiredInputsFilled = true;
       requiredInputs.forEach(inputId => {
-        if (!document.getElementById(inputId).value.trim()) requiredInputsFilled = false;
+        const el = document.getElementById(inputId);
+        if (!el || !el.value.trim()) requiredInputsFilled = false;
       });
       if (!requiredInputsFilled) {
         alert('Please fill in all required input fields.');
@@ -318,32 +657,52 @@
         alert('RecNo already exists. Please provide a different RecNo.');
         return;
       }
-
-      const packet = {
+      
+      let packet = {
+        entryType: currentMode,
         recNo: enteredRecNo,
         date: document.getElementById('date').value,
         email: document.getElementById('email').value,
-        senderName: document.getElementById('senderName').value,
-        senderAddress: document.getElementById('senderAddress').value,
-        senderContact: document.getElementById('senderContact').value,
-        weightTicket: document.getElementById('weightTicket').value,
         price: document.getElementById('price').value,
-        receiverName: document.getElementById('receiverName').value,
-        receiverAddress: document.getElementById('receiverAddress').value,
-        receiverContact: document.getElementById('receiverContact').value,
-        update: document.getElementById('update').value,
-        billItem: document.getElementById('billItem').value,
-        trackingNumber: getTrackingNumbers().join(','),
-        deliveredDate: document.getElementById('deliveredDate').value,
-        courierTicket: document.getElementById('courierTicket').value
       };
 
+      if (currentMode === 'courier') {
+          Object.assign(packet, {
+            senderName: document.getElementById('senderName').value,
+            senderAddress: document.getElementById('senderAddress').value,
+            senderContact: document.getElementById('senderContact').value,
+            weightTicket: document.getElementById('weightTicket').value,
+            receiverName: document.getElementById('receiverName').value,
+            receiverAddress: document.getElementById('receiverAddress').value,
+            receiverContact: document.getElementById('receiverContact').value,
+            update: document.getElementById('update').value,
+            billItem: document.getElementById('billItem').value,
+            trackingNumber: getDynamicInputs('trackingInputs').join(','),
+            deliveredDate: document.getElementById('deliveredDate').value,
+            courierTicket: document.getElementById('courierTicket').value
+          });
+      } else { // ticketing
+          const flightSegments = getFlightSegments();
+          Object.assign(packet, {
+            passengerName: document.getElementById('passengerName').value,
+            passengerContact: document.getElementById('passengerContact').value,
+            pnrNumber: document.getElementById('pnrNumber').value,
+            ticketNumber: document.getElementById('ticketNumber').value,
+            tripType: document.getElementById('tripType').value,
+            fareDetails: {
+                base: document.getElementById('baseFare').value,
+                taxes: document.getElementById('taxes').value,
+            },
+            flightSegments: flightSegments,
+            luggageWeight: document.getElementById('luggageWeight').value,
+            remarks: document.getElementById('remarks').value
+          });
+      }
+
       if (isEditing) {
-        // Update existing record
         database.ref('packets').once('value', (snapshot) => {
           snapshot.forEach((childSnapshot) => {
-            const existingPacket = childSnapshot.val();
-            if (existingPacket.recNo === enteredRecNo) {
+            if (childSnapshot.val().recNo === enteredRecNo) {
               childSnapshot.ref.update(packet);
             }
           });
@@ -352,10 +711,12 @@
         database.ref('packets').push(packet);
       }
       window.currentEditingRecNo = null;
-      clearInputs();
+      clearInputs(true);
       displayResults();
       applyFilter();
     }
+    window.saveData = saveData;
+
     function searchData() {
       searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
       if (!searchTerm) {
@@ -364,7 +725,10 @@
       }
       const searchResults = packets.filter(packet =>
         Object.values(packet).some(val =>
-          val && val.toString().toLowerCase().includes(searchTerm)
+          val && val.toString().toLowerCase().includes(searchTerm) ||
+          (Array.isArray(packet.flightSegments) && packet.flightSegments.some(segment =>
+            Object.values(segment).some(segVal => segVal && segVal.toString().toLowerCase().includes(searchTerm))
+          ))
         )
       );
       searchResults.sort((a, b) => {
@@ -391,52 +755,83 @@
         resultsContainer.appendChild(noResultsDiv);
       }
     }
+
     function displayResults(results = packets) {
       results.sort((a, b) => b.recNo - a.recNo);
       const resultsContainer = document.getElementById('results');
       resultsContainer.innerHTML = '';
-      results.forEach((packet, index) => {
+      results.forEach((packet) => {
         const packetDiv = document.createElement('div');
         packetDiv.className = 'packet';
-        const trackingNumbers = packet.trackingNumber.split(',').filter(tn => tn.trim());
-        const trackingLinks = trackingNumbers.map(tn => {
-          const tn_trim = tn.trim();
-          return tn_trim.startsWith('SG')
-            ? `<a href="https://shipglobal.au/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
-            : tn_trim.startsWith('FFC')
-              ? `<a href="https://www.firstflightcanada.com/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
-              : `<a href="https://parcelsapp.com/en/tracking/${tn_trim}" target="_blank">${highlightText(tn_trim)}</a>`;
-        }).join(', ');
-        packetDiv.innerHTML = `
-          <p>Rec NO: ${highlightText(packet.recNo)}</p>
-          <p>Date: ${highlightText(packet.date)}</p>
-          <p>Email: ${highlightText(packet.email)}</p>
-          <p>Sender Name: ${highlightText(packet.senderName)}</p>
-          <p>Sender Address: ${highlightText(packet.senderAddress)}</p>
-          <p>Sender Contact: ${highlightText(packet.senderContact)}</p>
-          <p>Weight KG: ${highlightText(packet.weightTicket)}</p>
-          <p>Price: ${highlightText(packet.price)}</p>
-          <p>Receiver Name: ${highlightText(packet.receiverName)}</p>
-          <p>Receiver Address: ${highlightText(packet.receiverAddress)}</p>
-          <p>Receiver Contact: ${highlightText(packet.receiverContact)}</p>
-          <p>Gateway: ${highlightText(packet.update)}</p>
-          <p>Bill Item: ${highlightText(packet.billItem)}</p>
-          <p>Tracking Number(s): ${trackingLinks}</p>
-          <p>Delivered Date: ${highlightText(packet.deliveredDate)}</p>
-          <p>Item: ${highlightText(packet.courierTicket)}</p>
-          <button onclick="editPacket(${packets.indexOf(packet)})">Edit</button>
-          <button onclick="deletePacket(${packets.indexOf(packet)})" style="background-color: #e74c3c;">Delete</button>
-          <button onclick="copyToClipboard(${packets.indexOf(packet)})">Copy</button>
-          <button onclick="copyForPrint(${packets.indexOf(packet)})">Print</button>
-          <br>
-          <button onclick="sendMail(${packets.indexOf(packet)})")">Mail</button>
-          <button onclick="downloadBill(${packets.indexOf(packet)})">Bill</button>
+        
+        const originalIndex = packets.findIndex(p => p.recNo === packet.recNo);
+
+        if (packet.entryType === 'ticketing') {
+            const itineraryHTML = renderItinerary(packet);
+            const fareText = packet.fareDetails ? `Base: ${packet.fareDetails.base}, Tax: ${packet.fareDetails.taxes}` : 'N/A';
+            packetDiv.innerHTML = `
+                <p class="entry-type-header">TICKET</p>
+                <p>Rec NO: ${highlightText(packet.recNo)}</p>
+                <p>Date: ${highlightText(packet.date)}</p>
+                <p>Price: ${highlightText(packet.price)}</p>
+                <p>Passenger Name: ${highlightText(packet.passengerName)}</p>
+                <p>PNR: ${highlightText(packet.pnrNumber)} | Ticket: ${highlightText(packet.ticketNumber)}</p>
+                <p>Trip: ${highlightText(packet.tripType)} | Fare: ${highlightText(fareText)}</p>
+                ${itineraryHTML}
+                <p>Luggage: ${highlightText(packet.luggageWeight)}</p>
+                <p>Remarks: ${highlightText(packet.remarks)}</p>
+            `;
+        } else { // Courier or old data
+            const trackingNumbers = (packet.trackingNumber || '').split(',').filter(tn => tn.trim());
+            const trackingLinks = trackingNumbers.map(tn => {
+            const tn_trim = tn.trim();
+            return tn_trim.startsWith('SG')
+                ? `<a href="https://shipglobal.au/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
+                : tn_trim.startsWith('FFC')
+                ? `<a href="https://www.firstflightcanada.com/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
+                : `<a href="https://parcelsapp.com/en/tracking/${tn_trim}" target="_blank">${highlightText(tn_trim)}</a>`;
+            }).join(', ');
+            packetDiv.innerHTML = `
+                <p class="entry-type-header">COURIER</p>
+                <p>Rec NO: ${highlightText(packet.recNo)}</p>
+                <p>Date: ${highlightText(packet.date)}</p>
+                <p>Email: ${highlightText(packet.email)}</p>
+                <p>Sender Name: ${highlightText(packet.senderName)}</p>
+                <p>Sender Address: ${highlightText(packet.senderAddress)}</p>
+                <p>Sender Contact: ${highlightText(packet.senderContact)}</p>
+                <p>Weight KG: ${highlightText(packet.weightTicket)}</p>
+                <p>Price: ${highlightText(packet.price)}</p>
+                <p>Receiver Name: ${highlightText(packet.receiverName)}</p>
+                <p>Receiver Address: ${highlightText(packet.receiverAddress)}</p>
+                <p>Receiver Contact: ${highlightText(packet.receiverContact)}</p>
+                <p>Gateway: ${highlightText(packet.update)}</p>
+                <p>Bill Item: ${highlightText(packet.billItem)}</p>
+                <p>Tracking Number(s): ${trackingLinks}</p>
+                <p>Delivered Date: ${highlightText(packet.deliveredDate)}</p>
+                <p>Item: ${highlightText(packet.courierTicket)}</p>
+            `;
+        }
+
+        const actionsContainer = document.createElement('div');
+        actionsContainer.innerHTML = `
+          <button onclick="editPacket(${originalIndex})">Edit</button>
+          <button onclick="deletePacket(${originalIndex})" style="background-color: var(--accent-red-alt);">Delete</button>
+          <button onclick="copyToClipboard(${originalIndex})">Copy</button>
+          <button onclick="copyForPrint(${originalIndex})">Print</button>
+          <button onclick="sendMail(${originalIndex})")">Mail</button>
+          <button id="billBtn-${originalIndex}" onclick="downloadBill(${originalIndex})">Bill</button>
         `;
+        packetDiv.appendChild(actionsContainer);
         resultsContainer.appendChild(packetDiv);
+
+        if (packet.entryType === 'ticketing') {
+            document.getElementById(`billBtn-${originalIndex}`).style.display = 'none';
+        }
       });
     }
+
     function highlightText(text) {
-      if (!searchTerm || !text) return text;
+      if (!searchTerm || text === null || typeof text === 'undefined') return text || '';
       const textStr = text.toString();
       const searchStr = searchTerm.toLowerCase();
       const lowerText = textStr.toLowerCase();
@@ -452,19 +847,16 @@
       result += textStr.substring(lastIndex);
       return result;
     }
+    window.highlightText = highlightText;
+    
     function clearSearch() {
       document.getElementById('searchInput').value = '';
       searchTerm = '';
       displayResults(packets);
       calculateAndDisplayTotal(packets);
     }
-    function debounce(func, wait) {
-      let timeout;
-      return function (...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), wait);
-      };
-    }
+    window.clearSearch = clearSearch;
+
     function handleSearchClick() {
       searchData();
       hideEntrySection();
@@ -476,16 +868,18 @@
       );
       calculateAndDisplayTotal(searchResults);
     }
-    document.getElementById('searchInput').addEventListener('keyup', function(event) {
-        if (event.key === "Enter") {
-            // Prevent the default form submission behavior
-            event.preventDefault();
-            // Trigger the search button's click action
-            document.getElementById('Search').click();
-        }
+    window.handleSearchClick = handleSearchClick;
+
+    document.getElementById('searchInput').addEventListener('keyup', function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        document.getElementById('Search').click();
+      }
     });
+
     function downloadBill(index) {
       const packet = packets[index];
+      if (packet.entryType === 'ticketing') return; 
       const canvas = document.createElement('canvas');
       canvas.width = 2417;
       canvas.height = 1157;
@@ -495,9 +889,7 @@
       logo.onload = () => {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        const logoWidth = 2417;
-        const logoHeight = 1157;
-        ctx.drawImage(logo, 0, 0, logoWidth, logoHeight);
+        ctx.drawImage(logo, 0, 0, 2417, 1157);
         ctx.fillStyle = '#000000';
         ctx.font = ' 44px Arial';
         ctx.fillText(`${packet.recNo}`, 250, 397);
@@ -521,57 +913,53 @@
         });
       };
     }
+    window.downloadBill = downloadBill;
+    
     function numberToWords(num) {
       const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
         'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
         'Seventeen', 'Eighteen', 'Nineteen'];
       const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-
-      // Make sure we're working with a number
       num = parseFloat(num);
       if (isNaN(num)) return '';
-      const parts = num.toString().split('.');
-      let wholePart = parseInt(parts[0]);
-      const decimalPart = parts.length > 1 ? parseInt(parts[1]) : 0;
       if (num === 0) return 'Zero';
       function convertLessThanOneThousand(n) {
         if (n === 0) return '';
-        if (n < 20) {
-          return ones[n];
-        }
-        if (n < 100) {
-          return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + ones[n % 10] : '');
-        }
+        if (n < 20) return ones[n];
+        if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + ones[n % 10] : '');
         return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' and ' + convertLessThanOneThousand(n % 100) : '');
       }
       let result = '';
-      if (wholePart >= 1000000000) {
-        result += convertLessThanOneThousand(Math.floor(wholePart / 1000000000)) + ' Billion ';
-        wholePart %= 1000000000;
-      }
-      if (wholePart >= 1000000) {
-        result += convertLessThanOneThousand(Math.floor(wholePart / 1000000)) + ' Million ';
-        wholePart %= 1000000;
-      }
-      if (wholePart >= 1000) {
-        result += convertLessThanOneThousand(Math.floor(wholePart / 1000)) + ' Thousand ';
-        wholePart %= 1000;
-      }
-      if (wholePart > 0) {
-        result += convertLessThanOneThousand(wholePart);
-      }
-      if (decimalPart > 0) {
-        if (result !== '') {
-          result += ' and ';
-        }
-        result += convertLessThanOneThousand(decimalPart) + ' Cents';
-      }
-
+      if (num >= 10000000) { result += convertLessThanOneThousand(Math.floor(num / 10000000)) + ' Crore '; num %= 10000000; }
+      if (num >= 100000) { result += convertLessThanOneThousand(Math.floor(num / 100000)) + ' Lakh '; num %= 100000; }
+      if (num >= 1000) { result += convertLessThanOneThousand(Math.floor(num / 1000)) + ' Thousand '; num %= 1000; }
+      if (num > 0) { result += convertLessThanOneThousand(num); }
       return result.trim();
     }
+
     function copyToClipboard(index) {
       const packet = packets[index];
-      const packetText = `
+      let packetText = '';
+      if (packet.entryType === 'ticketing') {
+        packetText = `
+    Entry Type: TICKET
+    Rec NO: ${packet.recNo}
+    Date: ${packet.date}
+    Price: ${packet.price}
+    Passenger Name: ${packet.passengerName}
+    Passenger Contact: ${packet.passengerContact}
+    PNR: ${packet.pnrNumber}
+    Ticket Number: ${packet.ticketNumber}
+    Trip Type: ${packet.tripType}
+    Fare: Base ${packet.fareDetails?.base}, Taxes ${packet.fareDetails?.taxes}
+    Luggage: ${packet.luggageWeight}
+    Remarks: ${packet.remarks}
+    --- Itinerary ---
+    ${(packet.flightSegments || []).map(s => `    ✈️ ${s.depAirport} -> ${s.arrAirport} on ${s.airline} ${s.flightNo}`).join('\n')}
+        `;
+      } else {
+        packetText = `
+    Entry Type: COURIER
     Rec NO: ${packet.recNo}
     Date: ${packet.date}
     Email: ${packet.email}
@@ -588,84 +976,411 @@
     Tracking Number: ${packet.trackingNumber}
     Delivered Date: ${packet.deliveredDate}
     Item: ${packet.courierTicket}
-          `;
-      const textarea = document.createElement('textarea');
-      textarea.value = packetText;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
+        `;
+      }
+      navigator.clipboard.writeText(packetText.trim()).then(() => alert('Copied to clipboard!'));
     }
+    window.copyToClipboard = copyToClipboard;
+
     function copyForPrint(index) {
-      const packet = packets[index];
-      const packetText = `
-Four Direction 056-490449
+        const packet = packets[index];
+        let packetText = '';
+        if (packet.entryType === 'ticketing') {
+            packetText = `
+Four Direction Travels & Tours - 056-490449
+Passenger: ${packet.passengerName}
+PNR: ${packet.pnrNumber}
+Date: ${packet.date}
+${(packet.flightSegments || []).map(s => `Flight: ${s.airline} ${s.flightNo} from ${s.depAirport} to ${s.arrAirport}`).join('\n')}
+            `;
+        } else {
+            packetText = `
+Four Direction - 056-490449
 Tracking Number: ${packet.trackingNumber}
 ${packet.update}
 Date: ${packet.date}
-Sender Name: ${packet.senderName}
-Sender Address: ${packet.senderAddress}
-Sender Contact: ${packet.senderContact}
-Weight KG: ${packet.weightTicket}
-Receiver Name: ${packet.receiverName}
-Receiver Address: ${packet.receiverAddress}
-Receiver Contact: ${packet.receiverContact}
+Sender: ${packet.senderName} (${packet.senderContact})
+Address: ${packet.senderAddress}
+Weight: ${packet.weightTicket} KG
+Receiver: ${packet.receiverName} (${packet.receiverContact})
+Address: ${packet.receiverAddress}
 Item: ${packet.courierTicket}`;
-      navigator.clipboard.writeText(packetText);
+        }
+        navigator.clipboard.writeText(packetText.trim()).then(() => alert('Print-friendly text copied!'));
     }
-    function addTrackingInput() {
-      const container = document.getElementById('trackingInputs');
-      const div = document.createElement('div');
-      div.className = 'tracking-group';
-      div.innerHTML = `
-        <input type="text" class="tracking-input">
-        <button type="button" onclick="removeTrackingInput(this)" style="width: 30px; background-color: #e74c3c;">-</button>
-      `;
-      container.appendChild(div);
-    }
+    window.copyForPrint = copyForPrint;
 
-    function removeTrackingInput(button) {
+    function addTrackingInput() {
+        const container = document.getElementById('trackingInputs');
+        const div = document.createElement('div');
+        div.className = 'dynamic-input-group';
+        div.innerHTML = `
+            <input type="text" class="dynamic-input">
+            <button type="button" onclick="removeDynamicInput(this)" style="background-color: var(--accent-red-alt);">-</button>
+        `;
+        container.appendChild(div);
+    }
+    window.addTrackingInput = addTrackingInput;
+
+    function removeDynamicInput(button) {
       button.parentElement.remove();
     }
-
-    function getTrackingNumbers() {
-      const inputs = document.querySelectorAll('.tracking-input');
-      return Array.from(inputs).map(input => input.value).filter(val => val);
+    window.removeDynamicInput = removeDynamicInput;
+    
+    function getDynamicInputs(containerId) {
+        const container = document.getElementById(containerId);
+        const inputs = container.querySelectorAll('.dynamic-input');
+        return Array.from(inputs).map(input => input.value).filter(val => val.trim());
     }
 
     function sendMail(index) {
       const packet = packets[index];
-      const trackingNumbers = packet.trackingNumber.split(',').filter(t => t.trim());
+      if (!packet.email) {
+        alert("No email address found for this entry.");
+        return;
+      }
+      let subject = '';
+      let mailBody = '';
 
-      const trackingInfo = trackingNumbers.map(tn => {
-        const tn_trim = tn.trim();
-        const link = tn_trim.startsWith('SG')
-          ? `https://shipglobal.au/tracking?waybill=${encodeURIComponent(tn_trim)}&submit=Track`
-          : tn_trim.startsWith('FFC')
-            ? `https://www.firstflightcanada.com/tracking?waybill=${encodeURIComponent(tn_trim)}&submit=Track`
-            : `https://parcelsapp.com/en/tracking/${encodeURIComponent(tn_trim)}`;
-        return `\nTracking Number: ${tn_trim}\nTracking Link: ${link}`;
-      }).join('\n');
-
-      const mailBody = `Dear Customer,\n\nWe hope this email finds you well.\n\nWe are pleased to inform you that your recent shipment has been processed and assigned the following tracking information:${trackingInfo}\n\nIf you have any queries about your package please do not hesitate to contact us.\n\nThank you for choosing our service.\n\nBest regards,\nFour Direction Courier\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
-      window.open(`https://mail.google.com/mail/u/0/?fs=1&tf=cm&to=${encodeURIComponent(packet.email)}&su=Your+Package+Status+by+Four+Direction&body=${encodeURIComponent(mailBody)}`, '_blank');
+      if (packet.entryType === 'ticketing') {
+        subject = `Your Flight Itinerary from Four Direction - PNR: ${packet.pnrNumber}`;
+        mailBody = `Dear ${packet.passengerName},\n\nWe hope this email finds you well.\n\nPlease find your flight itinerary below:\n\nPNR: ${packet.pnrNumber}\nTicket Number: ${packet.ticketNumber}\n\n${(packet.flightSegments || []).map(s => `Flight: ${s.airline} ${s.flightNo}\nDeparture: ${s.depAirport} at ${new Date(s.depDateTime).toLocaleString()}\nArrival: ${s.arrAirport} at ${new Date(s.arrDateTime).toLocaleString()}\n`).join('\n')}\nThank you for choosing our service.\n\nBest regards,\nFour Direction Travels & Tours\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
+      } else { // Courier
+        const trackingNumbers = (packet.trackingNumber || '').split(',').filter(t => t.trim());
+        const trackingInfo = trackingNumbers.map(tn => {
+          const tn_trim = tn.trim();
+          const link = tn_trim.startsWith('SG')
+            ? `https://shipglobal.au/tracking?waybill=${encodeURIComponent(tn_trim)}&submit=Track`
+            : tn_trim.startsWith('FFC')
+              ? `https://www.firstflightcanada.com/tracking?waybill=${encodeURIComponent(tn_trim)}&submit=Track`
+              : `https://parcelsapp.com/en/tracking/${encodeURIComponent(tn_trim)}`;
+          return `\nTracking Number: ${tn_trim}\nTracking Link: ${link}`;
+        }).join('\n');
+        subject = `Your Package Status from Four Direction`;
+        mailBody = `Dear Customer,\n\nWe hope this email finds you well.\n\nWe are pleased to inform you that your recent shipment has been processed and assigned the following tracking information:${trackingInfo}\n\nIf you have any queries about your package please do not hesitate to contact us.\n\nThank you for choosing our service.\n\nBest regards,\nFour Direction Courier\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
+      }
+      window.open(`https://mail.google.com/mail/u/0/?fs=1&tf=cm&to=${encodeURIComponent(packet.email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailBody)}`, '_blank');
     }
+    window.sendMail = sendMail;
+
     function editPacket(index) {
-      if (!confirm("Are you sure you want to edit this entry?")) return;
-      const packet = packets[index];
-      // Store the current recNo for later reference when saving
-      window.currentEditingRecNo = packet.recNo;
-      Object.entries(packet).forEach(([key, value]) => {
-        const element = document.getElementById(key);
-        if (element) element.value = value;
-      });
-      showEntrySection();
-      // Scroll to the top of the page
-      window.scrollTo(0, 0);
+        if (!confirm("Are you sure you want to edit this entry?")) return;
+        const packet = packets[index];
+        const packetMode = packet.entryType || 'courier';
+        setMode(packetMode);
+        
+        window.currentEditingRecNo = packet.recNo;
+        clearInputs(true);
+
+        document.getElementById('date').value = packet.date || '';
+        document.getElementById('recNo').value = packet.recNo || '';
+        document.getElementById('email').value = packet.email || '';
+        document.getElementById('price').value = packet.price || '';
+
+        if (packetMode === 'courier') {
+            ['senderName', 'senderAddress', 'senderContact', 'weightTicket', 'receiverName', 'receiverAddress', 'receiverContact', 'update', 'billItem', 'deliveredDate', 'courierTicket'].forEach(key => {
+                document.getElementById(key).value = packet[key] || '';
+            });
+            populateDynamicInputs('trackingInputs', (packet.trackingNumber || '').split(','), addTrackingInput);
+        } else {
+            ['passengerName', 'passengerContact', 'pnrNumber', 'ticketNumber', 'tripType', 'luggageWeight', 'remarks'].forEach(key => {
+                 document.getElementById(key).value = packet[key] || '';
+            });
+            if (packet.fareDetails) {
+                document.getElementById('baseFare').value = packet.fareDetails.base || '';
+                document.getElementById('taxes').value = packet.fareDetails.taxes || '';
+            }
+            if(packet.flightSegments) {
+                packet.flightSegments.forEach(segmentData => {
+                    addFlightSegment(segmentData);
+                });
+            }
+        }
+        
+        showEntrySection();
+        window.scrollTo(0, 0);
     }
+    window.editPacket = editPacket;
+    
+    function populateDynamicInputs(containerId, values, addFunction) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        const addBtnHTML = `<button type="button" onclick="${addFunction.name}()" style="width: 30px; background-color: var(--accent-green);">+</button>`;
+        const initialGroupHTML = `<div class="dynamic-input-group"><input type="text" id="trackingNumber" class="dynamic-input">${addBtnHTML}</div>`;
+
+        if (!values || values.length === 0 || values.every(v => !v.trim())) {
+            container.innerHTML = initialGroupHTML;
+            return;
+        }
+
+        values.forEach((value, index) => {
+            const div = document.createElement('div');
+            div.className = 'dynamic-input-group';
+            const buttonHTML = index === 0 
+                ? addBtnHTML
+                : `<button type="button" onclick="removeDynamicInput(this)" style="background-color: var(--accent-red-alt);">-</button>`;
+            div.innerHTML = `<input type="text" class="dynamic-input" value="${value.trim()}"> ${buttonHTML}`;
+            container.appendChild(div);
+        });
+    }
+
+    // --- NEW TICKETING & AI FUNCTIONS ---
+    window.addFlightSegment = function(data = {}) {
+        const container = document.getElementById('flightSegmentsContainer');
+        const segmentCount = container.getElementsByClassName('flight-segment').length;
+        const div = document.createElement('div');
+        div.className = 'flight-segment';
+        div.innerHTML = `
+            <h4>Segment ${segmentCount + 1}</h4>
+            <div class="segment-row">
+                <input type="text" class="segment-airline" placeholder="Airline" value="${data.airline || ''}">
+                <input type="text" class="segment-flightNo" placeholder="Flight No." value="${data.flightNo || ''}">
+                <input type="text" class="segment-aircraft" placeholder="Aircraft" value="${data.aircraft || ''}">
+            </div>
+            <div class="segment-row">
+                <input type="text" class="segment-depAirport" placeholder="Departure Airport" value="${data.depAirport || ''}">
+                <input type="datetime-local" class="segment-depDateTime" title="Departure Date & Time" value="${data.depDateTime || ''}">
+            </div>
+            <div class="segment-row">
+                <input type="text" class="segment-arrAirport" placeholder="Arrival Airport" value="${data.arrAirport || ''}">
+                <input type="datetime-local" class="segment-arrDateTime" title="Arrival Date & Time" value="${data.arrDateTime || ''}">
+            </div>
+            <div class="segment-row">
+                <input type="text" class="segment-terminal" placeholder="Terminal" value="${data.terminal || ''}">
+                <button type="button" onclick="removeFlightSegment(this)" style="background-color: var(--accent-red-alt); width: 100px;">Remove</button>
+            </div>
+        `;
+        container.appendChild(div);
+    }
+    
+    window.removeFlightSegment = function(button) {
+        const segmentDiv = button.closest('.flight-segment');
+        segmentDiv.remove();
+        const container = document.getElementById('flightSegmentsContainer');
+        const segments = container.getElementsByClassName('flight-segment');
+        Array.from(segments).forEach((segment, index) => {
+            segment.querySelector('h4').textContent = `Segment ${index + 1}`;
+        });
+    }
+
+    function getFlightSegments() {
+        const segments = [];
+        const segmentElements = document.getElementsByClassName('flight-segment');
+        for (const segmentEl of segmentElements) {
+            segments.push({
+                airline: segmentEl.querySelector('.segment-airline').value,
+                flightNo: segmentEl.querySelector('.segment-flightNo').value,
+                aircraft: segmentEl.querySelector('.segment-aircraft').value,
+                depAirport: segmentEl.querySelector('.segment-depAirport').value,
+                depDateTime: segmentEl.querySelector('.segment-depDateTime').value,
+                arrAirport: segmentEl.querySelector('.segment-arrAirport').value,
+                arrDateTime: segmentEl.querySelector('.segment-arrDateTime').value,
+                terminal: segmentEl.querySelector('.segment-terminal').value,
+            });
+        }
+        return segments;
+    }
+
+    function formatDuration(minutes) {
+        if (isNaN(minutes) || minutes < 0) return '';
+        const d = Math.floor(minutes / (24 * 60));
+        const h = Math.floor((minutes % (24 * 60)) / 60);
+        const m = Math.round(minutes % 60);
+        let result = '';
+        if (d > 0) result += `${d}d `;
+        if (h > 0) result += `${h}h `;
+        if (m > 0 || (d === 0 && h === 0)) result += `${m}m`;
+        return result.trim() || '0m';
+    }
+
+    function renderItinerary(packet) {
+        if (!packet.flightSegments || packet.flightSegments.length === 0) return '';
+        let itineraryHTML = '<div class="itinerary-display">';
+        let totalFlightMinutes = 0, totalLayoverMinutes = 0;
+
+        packet.flightSegments.forEach((segment, index) => {
+            const depDate = new Date(segment.depDateTime);
+            const arrDate = new Date(segment.arrDateTime);
+            const flightMinutes = !isNaN(depDate) && !isNaN(arrDate) ? (arrDate - depDate) / 60000 : 0;
+            totalFlightMinutes += flightMinutes > 0 ? flightMinutes : 0;
+            
+            itineraryHTML += `
+                <div class="itinerary-segment">
+                    ✈️ <span>${highlightText(segment.depAirport)} → ${highlightText(segment.arrAirport)}</span> (${highlightText(segment.airline)} ${highlightText(segment.flightNo)})
+                    <br>&nbsp;&nbsp;&nbsp;&nbsp;Aircraft: ${highlightText(segment.aircraft)} | Duration: ${formatDuration(flightMinutes)}
+                </div>
+            `;
+
+            if (index < packet.flightSegments.length - 1) {
+                const nextDepDate = new Date(packet.flightSegments[index+1].depDateTime);
+                const layoverMinutes = !isNaN(arrDate) && !isNaN(nextDepDate) ? (nextDepDate - arrDate) / 60000 : 0;
+                totalLayoverMinutes += layoverMinutes > 0 ? layoverMinutes : 0;
+                itineraryHTML += `<div class="itinerary-layover">🔄 Layover: ${formatDuration(layoverMinutes)}</div>`;
+            }
+        });
+        
+        const firstSegDate = new Date(packet.flightSegments[0].depDateTime);
+        const lastSegDate = new Date(packet.flightSegments[packet.flightSegments.length - 1].arrDateTime);
+        const totalJourneyMinutes = !isNaN(firstSegDate) && !isNaN(lastSegDate) ? (lastSegDate - firstSegDate) / 60000 : 0;
+
+        itineraryHTML += `<div class="itinerary-summary">
+            Total Journey: ${formatDuration(totalJourneyMinutes)} (Flight: ${formatDuration(totalFlightMinutes)}, Layover: ${formatDuration(totalLayoverMinutes)})
+        </div></div>`;
+        return itineraryHTML;
+    }
+
+    function fileToGenerativePart(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve({
+            inlineData: {
+              data: reader.result.split(',')[1],
+              mimeType: file.type,
+            },
+          });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function runGeminiExtraction(imagePart) {
+        if (!window.geminiApiKey) {
+            showAiMessage("AI features disabled. API key not configured.", "error");
+            return;
+        }
+        const { GoogleGenAI, GenaiType } = window;
+        const ai = new GoogleGenAI({ apiKey: window.geminiApiKey });
+
+        const lastRecNo = packets.length > 0 ? Math.max(...packets.map(p => parseInt(p.recNo) || 0)) : 0;
+
+        let prompt, schema;
+        const systemInstruction = "You are an intelligent data entry assistant for 'Four Direction Travels & Tours', a company handling courier and airline tickets. Extract information from the image into a JSON object based on the provided schema. Do not invent data. If a value is not present, use an empty string. Suggest the next receipt number based on the last one provided.";
+
+        if (currentMode === 'ticketing') {
+            prompt = `Extract flight ticket details. The last receipt number was ${lastRecNo}.`;
+            schema = {
+                type: GenaiType.OBJECT,
+                properties: {
+                    recNo: { type: GenaiType.STRING },
+                    passengerName: { type: GenaiType.STRING },
+                    pnrNumber: { type: GenaiType.STRING },
+                    ticketNumber: { type: GenaiType.STRING },
+                    tripType: { type: GenaiType.STRING, enum: ["ONE_WAY", "ROUND_TRIP"] },
+                    baseFare: { type: GenaiType.NUMBER },
+                    taxes: { type: GenaiType.NUMBER },
+                    price: { type: GenaiType.NUMBER },
+                    luggageWeight: { type: GenaiType.STRING },
+                    flightSegments: {
+                        type: GenaiType.ARRAY,
+                        items: {
+                            type: GenaiType.OBJECT,
+                            properties: {
+                                airline: { type: GenaiType.STRING },
+                                flightNo: { type: GenaiType.STRING },
+                                aircraft: { type: GenaiType.STRING },
+                                depAirport: { type: GenaiType.STRING },
+                                depDateTime: { type: GenaiType.STRING, description: "Format as YYYY-MM-DDTHH:mm" },
+                                arrAirport: { type: GenaiType.STRING },
+                                arrDateTime: { type: GenaiType.STRING, description: "Format as YYYY-MM-DDTHH:mm" },
+                            }
+                        }
+                    },
+                    ai_notes: { type: GenaiType.STRING, description: "Any notes or uncertainties about the extraction."}
+                }
+            };
+        } else { // courier
+            prompt = `Extract courier receipt details. The last receipt number was ${lastRecNo}.`;
+            schema = {
+                type: GenaiType.OBJECT,
+                properties: {
+                    recNo: { type: GenaiType.STRING },
+                    date: { type: GenaiType.STRING, description: "Format as YYYY-MM-DD" },
+                    senderName: { type: GenaiType.STRING },
+                    senderAddress: { type: GenaiType.STRING },
+                    senderContact: { type: GenaiType.STRING },
+                    receiverName: { type: GenaiType.STRING },
+                    receiverAddress: { type: GenaiType.STRING },
+                    receiverContact: { type: GenaiType.STRING },
+                    weightTicket: { type: GenaiType.STRING },
+                    price: { type: GenaiType.NUMBER },
+                    trackingNumber: { type: GenaiType.STRING, description: "Comma-separated if multiple"},
+                    ai_notes: { type: GenaiType.STRING, description: "Any notes or uncertainties about the extraction."}
+                }
+            };
+        }
+
+        try {
+            const response = await ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: { parts: [imagePart, { text: prompt }] },
+              config: {
+                systemInstruction: systemInstruction,
+                responseMimeType: "application/json",
+                responseSchema: schema,
+              },
+            });
+
+            const data = JSON.parse(response.text);
+            populateForm(data);
+            showAiMessage(data.ai_notes || "Data extracted successfully! Please review.", "success");
+        } catch (error) {
+            console.error("AI Extraction Error:", error);
+            showAiMessage("Failed to extract data. The image might be unclear or the format is not recognized.", "error");
+        }
+    }
+
+    function populateForm(data) {
+        clearInputs(false); // Clear form before populating
+        for (const key in data) {
+            if (key === 'flightSegments') {
+                (data.flightSegments || []).forEach(segment => addFlightSegment(segment));
+            } else if (key === 'trackingNumber') {
+                 populateDynamicInputs('trackingInputs', (data.trackingNumber || '').split(','), addTrackingInput);
+            } else {
+                const element = document.getElementById(key);
+                if (element) {
+                    element.value = data[key];
+                }
+            }
+        }
+        if(data.baseFare) document.getElementById('baseFare').value = data.baseFare;
+        if(data.taxes) document.getElementById('taxes').value = data.taxes;
+    }
+
+    window.handleAutofill = async function() {
+        const fileInput = document.getElementById('imageUpload');
+        if (fileInput.files.length === 0) {
+            alert("Please select an image or PDF file first.");
+            return;
+        }
+        showAiMessage("Analyzing file...", "info");
+        const file = fileInput.files[0];
+        try {
+            const imagePart = await fileToGenerativePart(file);
+            await runGeminiExtraction(imagePart);
+        } catch (error) {
+            console.error(error);
+            showAiMessage("Could not process the file.", "error");
+        }
+    }
+
+    window.showAiMessage = function(message, type = "info") {
+        const box = document.getElementById('ai-assistant-box');
+        const msgEl = document.getElementById('ai-assistant-message');
+        msgEl.textContent = message;
+        box.classList.add('visible');
+    }
+
+    window.hideAiMessage = function() {
+        document.getElementById('ai-assistant-box').classList.remove('visible');
+    }
+
     function showEntrySection() {
       document.getElementById('entrySection').style.display = 'block';
     }
+    window.showEntrySection = showEntrySection;
     function hideEntrySection() {
       document.getElementById('entrySection').style.display = 'none';
     }
@@ -674,39 +1389,29 @@ Item: ${packet.courierTicket}`;
       const packetToDelete = packets[index];
       database.ref('packets').once('value', (snapshot) => {
         snapshot.forEach((childSnapshot) => {
-          const packet = childSnapshot.val();
-          if (packet.recNo === packetToDelete.recNo) {
+          if (childSnapshot.val().recNo === packetToDelete.recNo) {
             childSnapshot.ref.remove();
           }
         });
       });
-      packets.splice(index, 1);
-      displayResults();
-      applyFilter();
-      window.scrollTo(0, 0);
     }
+    window.deletePacket = deletePacket;
+
     function applyFilter() {
-      const filterSelect = document.getElementById('filterSelect');
-      const selectedOption = filterSelect.value;
-      switch (selectedOption) {
-        case 'day':
-          applyDayFilter();
-          break;
-        case 'week':
-          applyWeekFilter();
-        case 'month':
-          applyMonthFilter();
-          break;
-        case 'year':
-          applyYearFilter();
-          break;
-        case 'all':
-          applyAllFilter();
-          break;
-        default:
-          break;
+      const selectedOption = document.getElementById('filterSelect').value;
+      const filterFunctions = {
+        'day': applyDayFilter,
+        'week': applyWeekFilter,
+        'month': applyMonthFilter,
+        'year': applyYearFilter,
+        'all': applyAllFilter
+      };
+      if(filterFunctions[selectedOption]) {
+        filterFunctions[selectedOption]();
       }
     }
+    window.applyFilter = applyFilter;
+
     function applyDayFilter() {
       const today = new Date().toISOString().split('T')[0];
       const filteredResults = packets.filter(packet => packet.date === today);
@@ -728,53 +1433,67 @@ Item: ${packet.courierTicket}`;
     }
     function applyMonthFilter() {
       const thisMonth = new Date().toISOString().split('-').slice(0, 2).join('-');
-      const filteredResults = packets.filter(packet => packet.date.startsWith(thisMonth));
+      const filteredResults = packets.filter(packet => packet.date && packet.date.startsWith(thisMonth));
       displayResults(filteredResults);
       calculateAndDisplayTotal(filteredResults);
     }
     function applyYearFilter() {
       const thisYear = new Date().toISOString().split('-')[0];
-      const filteredResults = packets.filter(packet => packet.date.startsWith(thisYear));
+      const filteredResults = packets.filter(packet => packet.date && packet.date.startsWith(thisYear));
       displayResults(filteredResults);
       calculateAndDisplayTotal(filteredResults);
     }
     function applyAllFilter() {
-      displayResults();
+      displayResults(packets);
       calculateAndDisplayTotal(packets);
     }
-    function clearInputs() {
-      const inputs = document.querySelectorAll('input[type="text"], input[type="date"], input[type="number"], textarea');
-      inputs.forEach(input => (input.value = ''));
-    }
-    function calculateAndDisplayTotal(displayedPackets) {
-      const total = displayedPackets.reduce((acc, packet) => {
-        if (packet.price) {
-          const price = parseFloat(packet.price);
-          if (!isNaN(price)) {
-            acc += price;
-          }
+
+    function clearInputs(clearAll = true) {
+        const selectors = ['#courierForm input, #courierForm textarea', '#ticketingForm input, #ticketingForm textarea, #ticketingForm select'];
+        if (clearAll) {
+            selectors.push('#entrySection > div > input[type="date"], #entrySection > div > input[type="number"], #entrySection > div > input[type="text"]');
         }
-        return acc;
-      }, 0);
-      const totalPriceElement = document.getElementById('totalPrice');
-      totalPriceElement.textContent = `Total Price: RS.${total.toFixed(2)}`;
-    }
-    function initializeApp() {
-        console.log("Admin verified. Initializing application...");
-        // This is your original data loading logic, now moved inside this function.
-        const packetsRef = database.ref('packets');
-        packetsRef.on('value', (snapshot) => {
-            packets = [];
-            snapshot.forEach((childSnapshot) => {
-                const packet = childSnapshot.val();
-                packets.push(packet);
-            });
-            displayResults();
-            applyFilter();
+        document.querySelectorAll(selectors.join(', ')).forEach(input => {
+             if(input.id !== 'adminEmail') input.value = '';
         });
+        document.getElementById('trackingInputs').innerHTML = `<div class="dynamic-input-group"><input type="text" id="trackingNumber" class="dynamic-input"><button type="button" onclick="addTrackingInput()" style="width: 30px; background-color: var(--accent-green);">+</button></div>`;
+        document.getElementById('flightSegmentsContainer').innerHTML = '';
+        addFlightSegment(); // Add one blank segment back
     }
 
-    // --- ADMIN AUTHENTICATION GUARD ---
+    function calculateAndDisplayTotal(displayedPackets) {
+      const total = displayedPackets.reduce((acc, packet) => acc + (parseFloat(packet.price) || 0), 0);
+      document.getElementById('totalPrice').textContent = `Total Price: RS.${total.toFixed(2)}`;
+    }
+
+    function initializeApp() {
+      const savedMode = localStorage.getItem('entryMode') || 'courier';
+      setMode(savedMode);
+      addFlightSegment();
+      
+      console.log("Admin verified. Initializing application...");
+      
+      database.ref('config/geminiApiKey').once('value', (snapshot) => {
+        if (snapshot.exists()) {
+          window.geminiApiKey = snapshot.val();
+          console.log("Gemini API Key loaded.");
+        } else {
+          console.warn("Gemini API Key not found in Firebase config.");
+          showAiMessage("AI features disabled. API key not configured.", "error");
+        }
+      });
+
+      const packetsRef = database.ref('packets');
+      packetsRef.on('value', (snapshot) => {
+        packets = [];
+        snapshot.forEach((childSnapshot) => {
+          packets.push(childSnapshot.val());
+        });
+        displayResults();
+        applyFilter();
+      });
+    }
+
     const auth = firebase.auth();
     const loginOverlay = document.getElementById('loginOverlay');
     const loginButton = document.getElementById('loginButton');
@@ -783,47 +1502,52 @@ Item: ${packet.courierTicket}`;
     const ADMIN_UID = "CF4g7aQ7WFPK6kOEMHxxbMXD9mp2";
 
     function performLogin() {
-        const password = adminPasswordInput.value;
-        const email = "fourdirection02@gmail.com";
-        loginError.textContent = '';
-
-        if (!password) {
-            loginError.textContent = 'Password is required.';
-            return;
-        }
-        auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
-            .then(() => {
-                // Now that persistence is set, sign the user in.
-                return auth.signInWithEmailAndPassword(email, password);
-            })
-            .catch(error => {
-                console.error("Login failed:", error.message);
-                loginError.textContent = 'Login failed: Incorrect password.';
-            });
+      const password = adminPasswordInput.value;
+      const email = "fourdirection02@gmail.com";
+      if (!password) {
+        loginError.textContent = 'Password is required.';
+        return;
+      }
+      auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+        .then(() => auth.signInWithEmailAndPassword(email, password))
+        .catch(error => {
+          loginError.textContent = 'Login failed: Incorrect password.';
+        });
     }
 
     loginButton.addEventListener('click', performLogin);
     adminPasswordInput.addEventListener('keyup', (event) => {
-        if (event.key === "Enter") {
-            performLogin();
-        }
+      if (event.key === "Enter") performLogin();
     });
 
     auth.onAuthStateChanged(user => {
-        if (user && user.uid === ADMIN_UID) {
-            // User is logged in AND is the correct admin.
-            loginOverlay.classList.remove('visible');
-            initializeApp();
-        } else {
-            // User is not logged in, or is the wrong user.
-            if (user) {
-                // Log out any incorrect user automatically
-                auth.signOut();
-            }
-            loginOverlay.classList.add('visible');
-            adminPasswordInput.focus();
-        }
+      if (user && user.uid === ADMIN_UID) {
+        loginOverlay.classList.remove('visible');
+        initializeApp();
+      } else {
+        if (user) auth.signOut();
+        loginOverlay.classList.add('visible');
+        adminPasswordInput.focus();
+      }
     });
+
+    const themeToggle = document.getElementById('theme-toggle');
+    const setTheme = (theme) => {
+      if (theme === 'dark') {
+        document.body.classList.add('dark-mode');
+        themeToggle.textContent = '☀️';
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.body.classList.remove('dark-mode');
+        themeToggle.textContent = '🌙';
+        localStorage.setItem('theme', 'light');
+      }
+    }
+    setTheme(localStorage.getItem('theme') || 'light');
+    themeToggle.addEventListener('click', () => {
+      setTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark');
+    });
+
   </script>
 </body>
 </html>
