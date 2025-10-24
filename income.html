@@ -408,40 +408,148 @@
       position: fixed;
       bottom: 20px;
       right: 20px;
-      width: 300px;
+      width: 350px;
+      max-height: 500px;
       background-color: var(--ai-box-bg);
-      border-radius: 8px;
-      box-shadow: 0 4px 12px var(--ai-box-shadow);
-      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 6px 20px var(--ai-box-shadow);
       z-index: 1000;
       opacity: 0;
       visibility: hidden;
       transform: translateY(20px);
       transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+      display: flex;
+      flex-direction: column;
     }
+
     #ai-assistant-box.visible {
       opacity: 1;
       visibility: visible;
       transform: translateY(0);
     }
-    #ai-assistant-box h4 {
-      margin: 0 0 10px 0;
+
+    #ai-assistant-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      border-bottom: 1px solid var(--input-border);
+    }
+
+    #ai-assistant-header h4 {
+      margin: 0;
       font-size: 1rem;
     }
-    #ai-assistant-box p {
-      margin: 0;
-      font-size: 0.9rem;
-      color: var(--text-color-light);
-    }
+
     #ai-assistant-close {
-      position: absolute;
-      top: 5px;
-      right: 5px;
+      position: static;
       background: none;
       border: none;
-      font-size: 1.2rem;
+      font-size: 1.5rem;
       cursor: pointer;
       color: var(--text-color-light);
+      padding: 0;
+    }
+
+    #ai-chat-history {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 100px;
+    }
+
+    .chat-message {
+        padding: 8px 12px;
+        border-radius: 18px;
+        max-width: 80%;
+        word-wrap: break-word;
+        font-size: 0.9rem;
+    }
+
+    .chat-message.user {
+        background-color: var(--accent-blue);
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+    
+    .chat-message.ai {
+        background-color: var(--toggle-bg);
+        color: var(--text-color);
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+    }
+
+    .chat-message.error {
+        background-color: var(--accent-red-alt);
+        color: white;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+    }
+
+    .chat-message.info {
+        font-style: italic;
+        align-self: center;
+        max-width: 100%;
+        text-align: center;
+        background-color: transparent;
+        color: var(--text-color-light);
+        padding: 2px;
+    }
+
+    #ai-input-container {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border-top: 1px solid var(--input-border);
+        gap: 5px;
+    }
+
+    #ai-user-input {
+        flex-grow: 1;
+        border: 1px solid var(--input-border);
+        border-radius: 20px;
+        padding: 8px 15px;
+        resize: none;
+        background-color: var(--input-bg);
+        color: var(--input-text);
+        font-family: inherit;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    #ai-record-btn, #ai-send-btn {
+        border: none;
+        background-color: transparent;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--accent-blue);
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+    }
+
+    #ai-record-btn:hover, #ai-send-btn:hover {
+        background-color: var(--toggle-bg);
+    }
+
+    #ai-record-btn.recording {
+        color: var(--accent-red);
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(230, 20, 20, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(230, 20, 20, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(230, 20, 20, 0); }
     }
   </style>
   <title>By Success</title>
@@ -601,9 +709,18 @@
   </div>
 
   <div id="ai-assistant-box">
-      <button id="ai-assistant-close" onclick="hideAiMessage()">×</button>
-      <h4>AI Assistant</h4>
-      <p id="ai-assistant-message">Ready to help!</p>
+    <div id="ai-assistant-header">
+        <h4>AI Assistant</h4>
+        <button id="ai-assistant-close" onclick="hideAiMessage()">×</button>
+    </div>
+    <div id="ai-chat-history">
+        <!-- Messages will be appended here -->
+    </div>
+    <div id="ai-input-container">
+        <textarea id="ai-user-input" placeholder="Type or use voice to correct..." rows="2"></textarea>
+        <button id="ai-record-btn" title="Record voice command">🎤</button>
+        <button id="ai-send-btn" title="Send message">➤</button>
+    </div>
   </div>
 
   <script>
@@ -619,10 +736,14 @@
     };
     const app = firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
+    
     let packets = [];
     let searchTerm = '';
     let currentMode = 'courier';
     window.geminiApiKey = null;
+    let lastAnalyzedImagePart = null; // for AI follow-up
+    let recognition; // for SpeechRecognition
+    let isRecording = false; // for SpeechRecognition state
 
     function setMode(mode) {
         currentMode = mode;
@@ -1229,49 +1350,43 @@ Item: ${packet.courierTicket}`;
         return itineraryHTML;
     }
 
-    function fileToGenerativePart(file) {
+    async function fileToGenerativePart(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
-          resolve({
+          const imagePart = {
             inlineData: {
               data: reader.result.split(',')[1],
               mimeType: file.type,
             },
-          });
+          };
+          lastAnalyzedImagePart = imagePart; // Store for follow-up
+          resolve(imagePart);
         };
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
     }
-
-    async function runGeminiExtraction(imagePart) {
-        if (!window.geminiApiKey) {
-            showAiMessage("AI features disabled. API key not configured.", "error");
-            return;
-        }
-        const { GoogleGenAI, GenaiType } = window;
-        const ai = new GoogleGenAI({ apiKey: window.geminiApiKey });
-
-        const lastRecNo = packets.length > 0 ? Math.max(...packets.map(p => parseInt(p.recNo) || 0)) : 0;
-
-        let prompt, schema;
-        const systemInstruction = "You are an intelligent data entry assistant for 'Four Direction Travels & Tours', a company handling courier and airline tickets. Extract information from the image into a JSON object based on the provided schema. Do not invent data. If a value is not present, use an empty string. Suggest the next receipt number based on the last one provided.";
-
+    
+    function getAiSchema() {
+        const { GenaiType } = window;
         if (currentMode === 'ticketing') {
-            prompt = `Extract flight ticket details. The last receipt number was ${lastRecNo}.`;
-            schema = {
+            return {
                 type: GenaiType.OBJECT,
                 properties: {
                     recNo: { type: GenaiType.STRING },
+                    date: { type: GenaiType.STRING, description: "Format as YYYY-MM-DD" },
+                    email: { type: GenaiType.STRING },
+                    price: { type: GenaiType.NUMBER },
                     passengerName: { type: GenaiType.STRING },
+                    passengerContact: { type: GenaiType.STRING },
                     pnrNumber: { type: GenaiType.STRING },
                     ticketNumber: { type: GenaiType.STRING },
                     tripType: { type: GenaiType.STRING, enum: ["ONE_WAY", "ROUND_TRIP"] },
                     baseFare: { type: GenaiType.NUMBER },
                     taxes: { type: GenaiType.NUMBER },
-                    price: { type: GenaiType.NUMBER },
                     luggageWeight: { type: GenaiType.STRING },
+                    remarks: { type: GenaiType.STRING },
                     flightSegments: {
                         type: GenaiType.ARRAY,
                         items: {
@@ -1284,6 +1399,7 @@ Item: ${packet.courierTicket}`;
                                 depDateTime: { type: GenaiType.STRING, description: "Format as YYYY-MM-DDTHH:mm" },
                                 arrAirport: { type: GenaiType.STRING },
                                 arrDateTime: { type: GenaiType.STRING, description: "Format as YYYY-MM-DDTHH:mm" },
+                                terminal: { type: GenaiType.STRING },
                             }
                         }
                     },
@@ -1291,43 +1407,188 @@ Item: ${packet.courierTicket}`;
                 }
             };
         } else { // courier
-            prompt = `Extract courier receipt details. The last receipt number was ${lastRecNo}.`;
-            schema = {
+            return {
                 type: GenaiType.OBJECT,
                 properties: {
                     recNo: { type: GenaiType.STRING },
                     date: { type: GenaiType.STRING, description: "Format as YYYY-MM-DD" },
+                    email: { type: GenaiType.STRING },
+                    price: { type: GenaiType.NUMBER },
                     senderName: { type: GenaiType.STRING },
                     senderAddress: { type: GenaiType.STRING },
                     senderContact: { type: GenaiType.STRING },
+                    weightTicket: { type: GenaiType.STRING },
                     receiverName: { type: GenaiType.STRING },
                     receiverAddress: { type: GenaiType.STRING },
                     receiverContact: { type: GenaiType.STRING },
-                    weightTicket: { type: GenaiType.STRING },
-                    price: { type: GenaiType.NUMBER },
+                    update: { type: GenaiType.STRING, description: "This is the 'Gateway' field." },
+                    billItem: { type: GenaiType.STRING },
                     trackingNumber: { type: GenaiType.STRING, description: "Comma-separated if multiple"},
+                    deliveredDate: { type: GenaiType.STRING, description: "Format as YYYY-MM-DD" },
+                    courierTicket: { type: GenaiType.STRING, description: "This is the 'Item' description field." },
                     ai_notes: { type: GenaiType.STRING, description: "Any notes or uncertainties about the extraction."}
                 }
             };
         }
+    }
+    
+    async function runGeminiExtraction(parts, isFollowUp = false) {
+        if (!window.geminiApiKey) {
+            showAiMessage("AI features disabled. API key not configured.", "error");
+            return;
+        }
+        const { GoogleGenAI } = window;
+        const ai = new GoogleGenAI({ apiKey: window.geminiApiKey });
+
+        const systemInstruction = "You are an intelligent data entry assistant for 'Four Direction Travels & Tours', a company handling courier and airline tickets. Extract information from the user's request into a JSON object based on the provided schema. Do not invent data. If a value is not present, use an empty string. If generating a new entry, suggest the next receipt number based on the last one provided.";
+        
+        const schema = getAiSchema();
 
         try {
             const response = await ai.models.generateContent({
-              model: "gemini-2.5-flash",
-              contents: { parts: [imagePart, { text: prompt }] },
-              config: {
-                systemInstruction: systemInstruction,
-                responseMimeType: "application/json",
-                responseSchema: schema,
-              },
+                model: "gemini-2.5-flash",
+                contents: { parts: parts },
+                config: {
+                    systemInstruction: systemInstruction,
+                    responseMimeType: "application/json",
+                    responseSchema: schema,
+                },
             });
 
             const data = JSON.parse(response.text);
             populateForm(data);
-            showAiMessage(data.ai_notes || "Data extracted successfully! Please review.", "success");
+            const aiNote = data.ai_notes || (isFollowUp ? "Form updated based on your request." : "Data extracted successfully! Please review.");
+            showAiMessage(aiNote, "ai");
         } catch (error) {
             console.error("AI Extraction Error:", error);
-            showAiMessage("Failed to extract data. The image might be unclear or the format is not recognized.", "error");
+            const errorMessage = isFollowUp ? "Sorry, I couldn't understand that request. Please try rephrasing." : "Failed to extract data. The image might be unclear or the format is not recognized.";
+            showAiMessage(errorMessage, "error");
+        }
+    }
+
+    function getFormDataAsObject() {
+        const data = {
+            entryType: currentMode,
+            recNo: document.getElementById('recNo').value,
+            date: document.getElementById('date').value,
+            email: document.getElementById('email').value,
+            price: document.getElementById('price').value,
+        };
+        if (currentMode === 'courier') {
+            Object.assign(data, {
+                senderName: document.getElementById('senderName').value,
+                senderAddress: document.getElementById('senderAddress').value,
+                senderContact: document.getElementById('senderContact').value,
+                weightTicket: document.getElementById('weightTicket').value,
+                receiverName: document.getElementById('receiverName').value,
+                receiverAddress: document.getElementById('receiverAddress').value,
+                receiverContact: document.getElementById('receiverContact').value,
+                update: document.getElementById('update').value,
+                billItem: document.getElementById('billItem').value,
+                trackingNumber: getDynamicInputs('trackingInputs').join(','),
+                deliveredDate: document.getElementById('deliveredDate').value,
+                courierTicket: document.getElementById('courierTicket').value
+            });
+        } else {
+            Object.assign(data, {
+                passengerName: document.getElementById('passengerName').value,
+                passengerContact: document.getElementById('passengerContact').value,
+                pnrNumber: document.getElementById('pnrNumber').value,
+                ticketNumber: document.getElementById('ticketNumber').value,
+                tripType: document.getElementById('tripType').value,
+                baseFare: document.getElementById('baseFare').value,
+                taxes: document.getElementById('taxes').value,
+                flightSegments: getFlightSegments(),
+                luggageWeight: document.getElementById('luggageWeight').value,
+                remarks: document.getElementById('remarks').value
+            });
+        }
+        return data;
+    }
+
+    async function sendAiFollowUp() {
+        const userInput = document.getElementById('ai-user-input').value.trim();
+        if (!userInput) return;
+        
+        showAiMessage(userInput, 'user');
+        document.getElementById('ai-user-input').value = '';
+        showAiMessage("Thinking...", "info");
+        
+        const currentData = getFormDataAsObject();
+        const currentDataString = JSON.stringify(currentData, null, 2);
+        
+        const lastRecNo = packets.length > 0 ? Math.max(...packets.map(p => parseInt(p.recNo) || 0)) : 0;
+        
+        const prompt = `
+            A user has uploaded a document (image attached if available) for data entry. The current state of the form is provided as a JSON object. The user now wants to make changes using a voice command.
+            Your task is to analyze the user's command, the attached image, and the current data. Then, generate a complete, updated JSON object that incorporates the user's request. Adhere to the required schema.
+            The last used receipt number was ${lastRecNo}.
+            
+            Current Data:
+            ${currentDataString}
+
+            User's Command (in Nepali or English):
+            "${userInput}"
+
+            Based on this command, review the image and the current data, and provide the final, corrected JSON object. Respond ONLY with the JSON object.
+        `;
+        
+        const parts = [];
+        if (lastAnalyzedImagePart) {
+            parts.push(lastAnalyzedImagePart);
+        }
+        parts.push({ text: prompt });
+        
+        await runGeminiExtraction(parts, true);
+    }
+
+    function initializeSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            console.warn("Speech Recognition not supported in this browser.");
+            document.getElementById('ai-record-btn').style.display = 'none';
+            return;
+        }
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.lang = 'ne-NP'; // Primarily Nepali, but should handle English too.
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = (event) => {
+            let transcript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                transcript += event.results[i][0].transcript;
+            }
+            document.getElementById('ai-user-input').value = transcript;
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error', event.error);
+            showAiMessage(`Speech error: ${event.error}`, "error");
+        };
+
+        recognition.onstart = () => {
+            isRecording = true;
+            const recordBtn = document.getElementById('ai-record-btn');
+            recordBtn.classList.add('recording');
+            recordBtn.textContent = '⏹️';
+        };
+
+        recognition.onend = () => {
+            isRecording = false;
+            const recordBtn = document.getElementById('ai-record-btn');
+            recordBtn.classList.remove('recording');
+            recordBtn.textContent = '🎤';
+        };
+    }
+
+    function toggleRecording() {
+        if (!recognition) return;
+        if (isRecording) {
+            recognition.stop();
+        } else {
+            recognition.start();
         }
     }
 
@@ -1338,6 +1599,9 @@ Item: ${packet.courierTicket}`;
                 (data.flightSegments || []).forEach(segment => addFlightSegment(segment));
             } else if (key === 'trackingNumber') {
                  populateDynamicInputs('trackingInputs', (data.trackingNumber || '').split(','), addTrackingInput);
+            } else if (key === 'fareDetails' && data.fareDetails) {
+                document.getElementById('baseFare').value = data.fareDetails.base || '';
+                document.getElementById('taxes').value = data.fareDetails.taxes || '';
             } else {
                 const element = document.getElementById(key);
                 if (element) {
@@ -1345,8 +1609,6 @@ Item: ${packet.courierTicket}`;
                 }
             }
         }
-        if(data.baseFare) document.getElementById('baseFare').value = data.baseFare;
-        if(data.taxes) document.getElementById('taxes').value = data.taxes;
     }
 
     window.handleAutofill = async function() {
@@ -1355,21 +1617,45 @@ Item: ${packet.courierTicket}`;
             alert("Please select an image or PDF file first.");
             return;
         }
+        document.getElementById('ai-chat-history').innerHTML = ''; // Clear history
         showAiMessage("Analyzing file...", "info");
+        
         const file = fileInput.files[0];
         try {
             const imagePart = await fileToGenerativePart(file);
-            await runGeminiExtraction(imagePart);
+            
+            const lastRecNo = packets.length > 0 ? Math.max(...packets.map(p => parseInt(p.recNo) || 0)) : 0;
+            const initialPrompt = currentMode === 'ticketing'
+                ? `Extract flight ticket details. The last receipt number was ${lastRecNo}.`
+                : `Extract courier receipt details. The last receipt number was ${lastRecNo}.`;
+
+            await runGeminiExtraction([imagePart, { text: initialPrompt }], false);
+
         } catch (error) {
             console.error(error);
             showAiMessage("Could not process the file.", "error");
         }
     }
 
-    window.showAiMessage = function(message, type = "info") {
+    function showAiMessage(message, type) { // type can be 'user', 'ai', 'info', 'error'
         const box = document.getElementById('ai-assistant-box');
-        const msgEl = document.getElementById('ai-assistant-message');
+        const history = document.getElementById('ai-chat-history');
+        
+        // remove any existing info message
+        const existingInfo = history.querySelector('.info');
+        if (existingInfo && type !== 'info') {
+             existingInfo.remove();
+        } else if (type === 'info' && existingInfo) {
+             existingInfo.textContent = message;
+             return;
+        }
+
+        const msgEl = document.createElement('div');
+        msgEl.className = `chat-message ${type}`;
         msgEl.textContent = message;
+        history.appendChild(msgEl);
+        
+        history.scrollTop = history.scrollHeight;
         box.classList.add('visible');
     }
 
@@ -1471,6 +1757,17 @@ Item: ${packet.courierTicket}`;
       setMode(savedMode);
       addFlightSegment();
       
+      initializeSpeechRecognition();
+
+      document.getElementById('ai-record-btn').addEventListener('click', toggleRecording);
+      document.getElementById('ai-send-btn').addEventListener('click', sendAiFollowUp);
+      document.getElementById('ai-user-input').addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              sendAiFollowUp();
+          }
+      });
+      
       console.log("Admin verified. Initializing application...");
       
       database.ref('config/geminiApiKey').once('value', (snapshot) => {
@@ -1550,4 +1847,5 @@ Item: ${packet.courierTicket}`;
 
   </script>
 </body>
+
 </html>
