@@ -237,7 +237,7 @@
         color: var(--text-color);
         cursor: pointer;
         transition: background-color 0.3s, color 0.3s;
-        width: 150px;
+        width: 120px;
     }
 
     .toggle-btn:first-child {
@@ -248,6 +248,11 @@
     .toggle-btn:last-child {
         border-top-right-radius: 5px;
         border-bottom-right-radius: 5px;
+        border-left: none;
+    }
+    
+    .toggle-btn:not(:first-child):not(:last-child) {
+        border-radius: 0;
         border-left: none;
     }
 
@@ -679,6 +684,7 @@
   <div id="mode-toggle">
     <button id="courier-mode-btn" class="toggle-btn active" onclick="setMode('courier')">Courier</button>
     <button id="ticketing-mode-btn" class="toggle-btn" onclick="setMode('ticketing')">Ticketing</button>
+    <button id="manifest-mode-btn" class="toggle-btn" onclick="setMode('manifest')">Manifest</button>
   </div>
 
   <div id="entrySection">
@@ -693,7 +699,7 @@
       <!-- Common Fields -->
       <label>Date:</label>
       <input type="date" id="date">
-      <label>Rec NO:</label>
+      <label id="recNoLabel" for="recNo">Rec NO:</label>
       <input type="number" id="recNo">
       <label>Email:</label>
       <input type="text" id="email">
@@ -768,6 +774,24 @@
         <label>Remarks:</label>
         <textarea id="remarks" rows="5" cols="40"></textarea>
       </div>
+
+      <!-- Manifest Specific Fields -->
+      <div id="manifestForm" style="display: none;">
+        <label>Pack:</label>
+        <input type="text" id="pack">
+        <label>Receiver Name:</label>
+        <input type="text" id="manifestReceiverName">
+        <label>Receiver Country:</label>
+        <input type="text" id="receiverCountry">
+        <label>Gateway:</label>
+        <input type="text" id="manifestGateway">
+        <label>Bill Item:</label>
+        <input type="text" id="manifestBillItem">
+        <label>Delivered Date:</label>
+        <input type="date" id="manifestDeliveredDate">
+        <label>Item:</label>
+        <textarea id="manifestItem" rows="5" cols="40"></textarea>
+      </div>
       
       <div id="updateButton">
         <button id="Save" onclick="saveData()">Save</button>
@@ -839,6 +863,7 @@
     const database = firebase.database();
     
     let allPackets = [];
+    const processedKeys = new Set();
     let searchTerm = '';
     let currentMode = 'courier';
     let currentEditingPacket = null; // Stores the full packet object being edited
@@ -864,9 +889,16 @@
         localStorage.setItem('entryMode', mode);
         document.getElementById('courierForm').style.display = mode === 'courier' ? 'block' : 'none';
         document.getElementById('ticketingForm').style.display = mode === 'ticketing' ? 'block' : 'none';
+        document.getElementById('manifestForm').style.display = mode === 'manifest' ? 'block' : 'none';
+        
         document.getElementById('courier-mode-btn').classList.toggle('active', mode === 'courier');
         document.getElementById('ticketing-mode-btn').classList.toggle('active', mode === 'ticketing');
-        clearInputs(false); 
+        document.getElementById('manifest-mode-btn').classList.toggle('active', mode === 'manifest');
+        
+        document.getElementById('recNoLabel').textContent = mode === 'manifest' ? 'Manifest No:' : 'Rec NO:';
+
+        clearInputs(false);
+        displayResults();
     }
     window.setMode = setMode;
 
@@ -958,7 +990,10 @@
 
     async function performSave(packetData, oldDataForLog) {
         const [year, month] = packetData.date.split('-');
-        const savePath = `packets/${year}/${month}`;
+        const saveRoot = packetData.entryType === 'courier' ? 'courier_packets'
+                     : packetData.entryType === 'ticketing' ? 'ticketing_packets'
+                     : 'manifest_packets';
+        const savePath = `${saveRoot}/${year}/${month}`;
         
         if (currentEditingPacket) {
             const oldPath = currentEditingPacket.path;
@@ -996,10 +1031,12 @@
     async function saveData() {
         const requiredInputs = currentMode === 'courier' 
             ? ['recNo', 'senderName', 'senderContact', 'senderAddress', 'price']
-            : ['recNo', 'passengerName', 'passengerContact', 'price'];
+            : currentMode === 'ticketing'
+            ? ['recNo', 'passengerName', 'passengerContact', 'price']
+            : ['recNo', 'manifestReceiverName', 'receiverCountry', 'price'];
 
         if (requiredInputs.some(id => !document.getElementById(id)?.value.trim())) {
-            showModal('Input Required', 'Please fill in all required input fields.');
+            showModal('Input Required', `Please fill in all required input fields for ${currentMode}.`);
             return;
         }
       
@@ -1034,7 +1071,7 @@
                 deliveredDate: document.getElementById('deliveredDate').value,
                 courierTicket: toTitleCase(document.getElementById('courierTicket').value)
             });
-        } else { // ticketing
+        } else if (currentMode === 'ticketing') {
             Object.assign(packetData, {
                 passengerName: document.getElementById('passengerName').value,
                 passengerContact: document.getElementById('passengerContact').value,
@@ -1046,9 +1083,20 @@
                 luggageWeight: document.getElementById('luggageWeight').value,
                 remarks: document.getElementById('remarks').value
             });
+        } else if (currentMode === 'manifest') {
+             Object.assign(packetData, {
+                pack: document.getElementById('pack').value,
+                receiverName: toTitleCase(document.getElementById('manifestReceiverName').value),
+                receiverCountry: toTitleCase(document.getElementById('receiverCountry').value),
+                update: toTitleCase(document.getElementById('manifestGateway').value), // re-using 'update' for gateway
+                billItem: toTitleCase(document.getElementById('manifestBillItem').value),
+                deliveredDate: document.getElementById('manifestDeliveredDate').value,
+                manifestItem: toTitleCase(document.getElementById('manifestItem').value)
+            });
         }
         
-        const conflictingPacket = allPackets.find(p => 
+        const conflictingPacket = allPackets.find(p =>
+            p.entryType === packetData.entryType &&
             p.recNo === packetData.recNo && 
             p.date.startsWith(`${year}-${month}`) &&
             (!currentEditingPacket || p.key !== currentEditingPacket.key)
@@ -1057,7 +1105,7 @@
         if (conflictingPacket) {
             showModal(
                 'Confirm Overwrite', 
-                `RecNo ${packetData.recNo} already exists for this month. Do you want to overwrite the existing entry?`,
+                `${currentMode === 'manifest' ? 'Manifest No' : 'RecNo'} ${packetData.recNo} already exists for this month. Do you want to overwrite it?`,
                 'confirm',
                 () => {
                     if (currentEditingPacket && currentEditingPacket.key !== conflictingPacket.key) {
@@ -1097,7 +1145,7 @@
     }
 
     function displayResults() {
-      let results = allPackets;
+      let results = allPackets.filter(p => (p.entryType || 'courier') === currentMode);
       
       if (searchTerm) {
           results = results.filter(packet => {
@@ -1114,7 +1162,7 @@
       if (results.length === 0) {
         const noResultsDiv = document.createElement('div');
         noResultsDiv.className = 'no-results';
-        noResultsDiv.textContent = searchTerm ? `No results found for "${searchTerm}"` : (allPackets.length > 0 ? 'No results for current filter' : 'No records found.');
+        noResultsDiv.textContent = searchTerm ? `No results found for "${searchTerm}"` : `No ${currentMode} records found.`;
         resultsContainer.appendChild(noResultsDiv);
         calculateAndDisplayTotal([]);
         return;
@@ -1138,6 +1186,21 @@
                 ${itineraryHTML}
                 <p>Luggage: ${highlightText(packet.luggageWeight)}</p>
                 <p>Remarks: ${highlightText(packet.remarks)}</p>
+            `;
+        } else if (packet.entryType === 'manifest') {
+            packetDiv.innerHTML = `
+                <p class="entry-type-header">MANIFEST</p>
+                <p>Manifest No: ${highlightText(packet.recNo)}</p>
+                <p>Date: ${highlightText(packet.date)}</p>
+                <p>Email: ${highlightText(packet.email)}</p>
+                <p>Price: ${highlightText(packet.price)}</p>
+                <p>Pack: ${highlightText(packet.pack)}</p>
+                <p>Receiver Name: ${highlightText(packet.receiverName)}</p>
+                <p>Receiver Country: ${highlightText(packet.receiverCountry)}</p>
+                <p>Gateway: ${highlightText(packet.update)}</p>
+                <p>Bill Item: ${highlightText(packet.billItem)}</p>
+                <p>Delivered Date: ${highlightText(packet.deliveredDate)}</p>
+                <p>Item: ${highlightText(packet.manifestItem)}</p>
             `;
         } else { // Courier or old data
             const trackingNumbers = (packet.trackingNumber || '').split(',').filter(tn => tn.trim());
@@ -1182,7 +1245,7 @@
         packetDiv.appendChild(actionsContainer);
         resultsContainer.appendChild(packetDiv);
 
-        if (packet.entryType === 'ticketing') {
+        if (packet.entryType === 'ticketing' || packet.entryType === 'manifest') {
             document.getElementById(`billBtn-${packet.key}`).style.display = 'none';
         }
       });
@@ -1230,7 +1293,7 @@
 
     function downloadBill(key) {
       const packet = allPackets.find(p => p.key === key);
-      if (!packet || packet.entryType === 'ticketing') return; 
+      if (!packet || packet.entryType !== 'courier') return; 
       const canvas = document.createElement('canvas');
       canvas.width = 2417;
       canvas.height = 1157;
@@ -1309,7 +1372,22 @@
     --- Itinerary ---
     ${(packet.flightSegments || []).map(s => `    ✈️ ${s.depAirport} -> ${s.arrAirport} on ${s.airline} ${s.flightNo}`).join('\n')}
         `;
-      } else {
+      } else if (packet.entryType === 'manifest') {
+        packetText = `
+    Entry Type: MANIFEST
+    Manifest No: ${packet.recNo}
+    Date: ${packet.date}
+    Email: ${packet.email}
+    Price: ${packet.price}
+    Pack: ${packet.pack}
+    Receiver Name: ${packet.receiverName}
+    Receiver Country: ${packet.receiverCountry}
+    Gateway: ${packet.update}
+    Bill Item: ${packet.billItem}
+    Delivered Date: ${packet.deliveredDate}
+    Item: ${packet.manifestItem}
+        `;
+      } else { // Courier
         packetText = `
     Entry Type: COURIER
     Rec NO: ${packet.recNo}
@@ -1346,7 +1424,15 @@ PNR: ${packet.pnrNumber}
 Date: ${packet.date}
 ${(packet.flightSegments || []).map(s => `Flight: ${s.airline} ${s.flightNo} from ${s.depAirport} to ${s.arrAirport}`).join('\n')}
             `;
-        } else {
+        } else if (packet.entryType === 'manifest') {
+            packetText = `
+Four Direction - 056-490449
+Manifest No: ${packet.recNo}
+Date: ${packet.date}
+Receiver: ${packet.receiverName} (${packet.receiverCountry})
+Gateway: ${packet.update}
+Item: ${packet.manifestItem}`;
+        } else { // Courier
             packetText = `
 Four Direction - 056-490449
 Tracking Number: ${packet.trackingNumber}
@@ -1399,6 +1485,9 @@ Item: ${packet.courierTicket}`;
       if (packet.entryType === 'ticketing') {
         subject = `Your Flight Itinerary from Four Direction - PNR: ${packet.pnrNumber}`;
         mailBody = `Dear ${packet.passengerName},\n\nWe hope this email finds you well.\n\nPlease find your flight itinerary below:\n\nPNR: ${packet.pnrNumber}\nTicket Number: ${packet.ticketNumber}\n\n${(packet.flightSegments || []).map(s => `Flight: ${s.airline} ${s.flightNo}\nDeparture: ${s.depAirport} at ${new Date(s.depDateTime).toLocaleString()}\nArrival: ${s.arrAirport} at ${new Date(s.arrDateTime).toLocaleString()}\n`).join('\n')}\nThank you for choosing our service.\n\nBest regards,\nFour Direction Travels & Tours\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
+      } else if (packet.entryType === 'manifest') {
+        subject = `Your Manifest Details from Four Direction`;
+        mailBody = `Dear Customer,\n\nHere are your manifest details:\n\nManifest No: ${packet.recNo}\nDate: ${packet.date}\nReceiver: ${packet.receiverName} in ${packet.receiverCountry}\n\nBest regards,\nFour Direction\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
       } else { // Courier
         const trackingNumbers = (packet.trackingNumber || '').split(',').filter(t => t.trim());
         const trackingInfo = trackingNumbers.map(tn => {
@@ -1437,7 +1526,7 @@ Item: ${packet.courierTicket}`;
                     document.getElementById(key).value = packet[key] || '';
                 });
                 populateDynamicInputs('trackingInputs', (packet.trackingNumber || '').split(','), addTrackingInput);
-            } else {
+            } else if (packetMode === 'ticketing') {
                 ['passengerName', 'passengerContact', 'pnrNumber', 'ticketNumber', 'tripType', 'luggageWeight', 'remarks'].forEach(key => {
                      document.getElementById(key).value = packet[key] || '';
                 });
@@ -1450,6 +1539,14 @@ Item: ${packet.courierTicket}`;
                         addFlightSegment(segmentData);
                     });
                 }
+            } else if (packetMode === 'manifest') {
+                document.getElementById('pack').value = packet.pack || '';
+                document.getElementById('manifestReceiverName').value = packet.receiverName || '';
+                document.getElementById('receiverCountry').value = packet.receiverCountry || '';
+                document.getElementById('manifestGateway').value = packet.update || '';
+                document.getElementById('manifestBillItem').value = packet.billItem || '';
+                document.getElementById('manifestDeliveredDate').value = packet.deliveredDate || '';
+                document.getElementById('manifestItem').value = packet.manifestItem || '';
             }
             
             showEntrySection();
@@ -1928,50 +2025,58 @@ Item: ${packet.courierTicket}`;
     async function progressivelyLoadData() {
         const loadingStatus = document.getElementById('loadingStatus');
         const date = new Date();
+        const dataRoots = ['packets', 'courier_packets', 'ticketing_packets', 'manifest_packets'];
+
+        loadingStatus.textContent = 'Loading records...';
+        
         let year = date.getFullYear();
         let month = date.getMonth() + 1;
 
-        // Start by fetching current month
-        await fetchDataForMonth(year, String(month).padStart(2, '0'));
-
-        loadingStatus.textContent = 'Loading older records...';
-
-        for (let i = 0; i < 60; i++) { // Load up to 5 years of data
+        for (let i = 0; i < 61; i++) { // current month + 60 older months (5 years)
+            for (const root of dataRoots) {
+                await fetchDataForMonth(root, year, String(month).padStart(2, '0'));
+            }
             month--;
             if (month === 0) {
                 month = 12;
                 year--;
             }
-            await fetchDataForMonth(year, String(month).padStart(2, '0'));
         }
 
         loadingStatus.textContent = 'All records loaded.';
-        setTimeout(() => { loadingStatus.textContent = ''; }, 3000);
+        setTimeout(() => { loadingStatus.style.display = 'none'; }, 3000);
     }
 
-    async function fetchDataForMonth(year, month) {
-        const dataPath = `packets/${year}/${month}`;
-        const snapshot = await database.ref(dataPath).once('value');
-        
-        if (snapshot.exists()) {
-            const monthPackets = [];
-            snapshot.forEach((childSnapshot) => {
-                monthPackets.push({
-                    ...childSnapshot.val(),
-                    key: childSnapshot.key,
-                    path: `${dataPath}/${childSnapshot.key}`
+    async function fetchDataForMonth(root, year, month) {
+        const dataPath = `${root}/${year}/${month}`;
+        try {
+            const snapshot = await database.ref(dataPath).once('value');
+            if (snapshot.exists()) {
+                const monthPackets = [];
+                snapshot.forEach((childSnapshot) => {
+                    const key = childSnapshot.key;
+                    if (!processedKeys.has(key)) {
+                        monthPackets.push({
+                            ...childSnapshot.val(),
+                            key: key,
+                            path: `${dataPath}/${key}`
+                        });
+                        processedKeys.add(key);
+                    }
                 });
-            });
-            allPackets.push(...monthPackets);
-            displayResults();
-            return true;
+                if (monthPackets.length > 0) {
+                    allPackets.push(...monthPackets);
+                    displayResults();
+                }
+            }
+        } catch (error) {
+            console.error(`Failed to fetch data from ${dataPath}:`, error);
         }
-        return false;
     }
 
 
     function clearInputs(clearAll = true) {
-        const selectors = ['#courierForm input, #courierForm textarea', '#ticketingForm input, #ticketingForm textarea, #ticketingForm select'];
+        const selectors = ['#courierForm input, #courierForm textarea', '#ticketingForm input, #ticketingForm textarea, #ticketingForm select', '#manifestForm input, #manifestForm textarea'];
         if (clearAll) {
             selectors.push('#entrySection > div > input[type="date"], #entrySection > div > input[type="number"], #entrySection > div > input[type="text"]');
         }
@@ -1988,7 +2093,7 @@ Item: ${packet.courierTicket}`;
 
     function calculateAndDisplayTotal(displayedPackets) {
       const total = displayedPackets.reduce((acc, packet) => acc + (parseFloat(packet.price) || 0), 0);
-      document.getElementById('totalPrice').textContent = `Total Price: RS.${total.toFixed(2)}`;
+      document.getElementById('totalPrice').textContent = `Total Price for ${currentMode}: RS.${total.toFixed(2)}`;
     }
 
     async function initializeApp() {
