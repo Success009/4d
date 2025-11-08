@@ -672,8 +672,10 @@
       style="background-color: var(--accent-cyan); color: #000000;">In/Ex</button>
   </div>
   <div id="searchArea">
-    <label>Search:</label>
+    <label for="searchInput">Search:</label>
     <input type="text" id="searchInput">
+    <label for="dateLimit">Date Limit:</label>
+    <input type="date" id="dateLimit">
     <div>
       <button id="Search" onclick="handleSearchClick()">Search</button>
       <button id="Clear" onclick="clearSearch(); showEntrySection()">Clear Search</button>
@@ -785,12 +787,6 @@
         <input type="text" id="receiverCountry">
         <label>Gateway:</label>
         <input type="text" id="manifestGateway">
-        <label>Bill Item:</label>
-        <input type="text" id="manifestBillItem">
-        <label>Delivered Date:</label>
-        <input type="date" id="manifestDeliveredDate">
-        <label>Item:</label>
-        <textarea id="manifestItem" rows="5" cols="40"></textarea>
       </div>
       
       <div id="updateButton">
@@ -800,6 +796,7 @@
   </div>
 
   <div id="totalPrice"></div>
+  <div id="totalPackages"></div>
   <div id="resultsTitle">Results:</div>
   <div id="results"></div>
   <div id="loadingStatus"></div>
@@ -1088,10 +1085,7 @@
                 pack: document.getElementById('pack').value,
                 receiverName: toTitleCase(document.getElementById('manifestReceiverName').value),
                 receiverCountry: toTitleCase(document.getElementById('receiverCountry').value),
-                update: toTitleCase(document.getElementById('manifestGateway').value), // re-using 'update' for gateway
-                billItem: toTitleCase(document.getElementById('manifestBillItem').value),
-                deliveredDate: document.getElementById('manifestDeliveredDate').value,
-                manifestItem: toTitleCase(document.getElementById('manifestItem').value)
+                update: toTitleCase(document.getElementById('manifestGateway').value) // re-using 'update' for gateway
             });
         }
         
@@ -1147,6 +1141,11 @@
     function displayResults() {
       let results = allPackets.filter(p => (p.entryType || 'courier') === currentMode);
       
+      const dateLimit = document.getElementById('dateLimit').value;
+      if (dateLimit) {
+        results = results.filter(packet => packet.date === dateLimit);
+      }
+      
       if (searchTerm) {
           results = results.filter(packet => {
               const flatPacket = flattenObjectValues(packet);
@@ -1162,9 +1161,10 @@
       if (results.length === 0) {
         const noResultsDiv = document.createElement('div');
         noResultsDiv.className = 'no-results';
-        noResultsDiv.textContent = searchTerm ? `No results found for "${searchTerm}"` : `No ${currentMode} records found.`;
+        noResultsDiv.textContent = searchTerm || dateLimit ? `No results found` : `No ${currentMode} records found.`;
         resultsContainer.appendChild(noResultsDiv);
         calculateAndDisplayTotal([]);
+        calculateAndDisplayTotalPackages([]);
         return;
       }
 
@@ -1198,9 +1198,6 @@
                 <p>Receiver Name: ${highlightText(packet.receiverName)}</p>
                 <p>Receiver Country: ${highlightText(packet.receiverCountry)}</p>
                 <p>Gateway: ${highlightText(packet.update)}</p>
-                <p>Bill Item: ${highlightText(packet.billItem)}</p>
-                <p>Delivered Date: ${highlightText(packet.deliveredDate)}</p>
-                <p>Item: ${highlightText(packet.manifestItem)}</p>
             `;
         } else { // Courier or old data
             const trackingNumbers = (packet.trackingNumber || '').split(',').filter(tn => tn.trim());
@@ -1250,6 +1247,7 @@
         }
       });
       calculateAndDisplayTotal(results);
+      calculateAndDisplayTotalPackages(results);
     }
 
     function highlightText(text) {
@@ -1274,6 +1272,7 @@
     function clearSearch() {
       document.getElementById('searchInput').value = '';
       searchTerm = '';
+      document.getElementById('dateLimit').value = '';
       displayResults();
     }
     window.clearSearch = clearSearch;
@@ -1383,9 +1382,6 @@
     Receiver Name: ${packet.receiverName}
     Receiver Country: ${packet.receiverCountry}
     Gateway: ${packet.update}
-    Bill Item: ${packet.billItem}
-    Delivered Date: ${packet.deliveredDate}
-    Item: ${packet.manifestItem}
         `;
       } else { // Courier
         packetText = `
@@ -1431,7 +1427,7 @@ Manifest No: ${packet.recNo}
 Date: ${packet.date}
 Receiver: ${packet.receiverName} (${packet.receiverCountry})
 Gateway: ${packet.update}
-Item: ${packet.manifestItem}`;
+Pack: ${packet.pack}`;
         } else { // Courier
             packetText = `
 Four Direction - 056-490449
@@ -1544,9 +1540,6 @@ Item: ${packet.courierTicket}`;
                 document.getElementById('manifestReceiverName').value = packet.receiverName || '';
                 document.getElementById('receiverCountry').value = packet.receiverCountry || '';
                 document.getElementById('manifestGateway').value = packet.update || '';
-                document.getElementById('manifestBillItem').value = packet.billItem || '';
-                document.getElementById('manifestDeliveredDate').value = packet.deliveredDate || '';
-                document.getElementById('manifestItem').value = packet.manifestItem || '';
             }
             
             showEntrySection();
@@ -2093,7 +2086,18 @@ Item: ${packet.courierTicket}`;
 
     function calculateAndDisplayTotal(displayedPackets) {
       const total = displayedPackets.reduce((acc, packet) => acc + (parseFloat(packet.price) || 0), 0);
-      document.getElementById('totalPrice').textContent = `Total Price for ${currentMode}: RS.${total.toFixed(2)}`;
+      const label = currentMode === 'manifest' ? `Price for ${currentMode}` : `Total Price for ${currentMode}`;
+      document.getElementById('totalPrice').textContent = `${label}: RS.${total.toFixed(2)}`;
+    }
+
+    function calculateAndDisplayTotalPackages(displayedPackets) {
+      const totalPackagesEl = document.getElementById('totalPackages');
+      if (currentMode === 'manifest') {
+        const total = displayedPackets.reduce((acc, packet) => acc + (parseFloat(packet.pack) || 0), 0);
+        totalPackagesEl.textContent = `Packages: ${total}`;
+      } else {
+        totalPackagesEl.textContent = '';
+      }
     }
 
     async function initializeApp() {
@@ -2103,6 +2107,7 @@ Item: ${packet.courierTicket}`;
       
       initializeSpeechRecognition();
 
+      document.getElementById('dateLimit').addEventListener('change', searchData);
       document.getElementById('ai-record-btn').addEventListener('click', toggleRecording);
       document.getElementById('ai-send-btn').addEventListener('click', sendAiFollowUp);
       document.getElementById('ai-user-input').addEventListener('keydown', (e) => {
