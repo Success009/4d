@@ -545,6 +545,13 @@
         color: var(--accent-red);
         animation: pulse 1.5s infinite;
     }
+    
+    #loadingStatus {
+      text-align: center;
+      padding: 10px;
+      color: var(--text-color-light);
+      font-style: italic;
+    }
 
     @keyframes pulse {
         0% { box-shadow: 0 0 0 0 rgba(230, 20, 20, 0.7); }
@@ -677,19 +684,11 @@
       </div>
     </div>
   </div>
-  <div id="filterArea">
-    <label>Filter:</label>
-    <select id="filterSelect" onchange="applyFilter()">
-      <option value="all">All</option>
-      <option value="day">This Day</option>
-      <option value="week">This Week</option>
-      <option value="month">This Month</option>
-      <option value="year">This Year</option>
-    </select>
-  </div>
+
   <div id="totalPrice"></div>
   <div id="resultsTitle">Results:</div>
   <div id="results"></div>
+  <div id="loadingStatus"></div>
   
   <div id="loginOverlay" class="login-overlay">
     <div class="login-modal">
@@ -737,9 +736,11 @@
     const app = firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     
-    let packets = [];
+    let allPackets = [];
     let searchTerm = '';
     let currentMode = 'courier';
+    let currentEditingPacket = null; // Stores the full packet object being edited
+
     window.geminiApiKey = null;
     let lastAnalyzedImagePart = null; // for AI follow-up
     let recognition; // for SpeechRecognition
@@ -756,39 +757,35 @@
     }
     window.setMode = setMode;
 
-    function saveData() {
+    async function saveData() {
       const requiredInputs = currentMode === 'courier' 
         ? ['recNo', 'senderName', 'senderContact', 'senderAddress', 'price']
         : ['recNo', 'passengerName', 'passengerContact', 'price'];
 
-      let requiredInputsFilled = true;
-      requiredInputs.forEach(inputId => {
-        const el = document.getElementById(inputId);
-        if (!el || !el.value.trim()) requiredInputsFilled = false;
-      });
-      if (!requiredInputsFilled) {
+      if (requiredInputs.some(id => !document.getElementById(id)?.value.trim())) {
         alert('Please fill in all required input fields.');
         return;
       }
-
-      const enteredRecNo = document.getElementById('recNo').value.trim();
-      const isEditing = window.currentEditingRecNo && window.currentEditingRecNo === enteredRecNo;
-
-      if (!isEditing && packets.some(packet => packet.recNo === enteredRecNo)) {
-        alert('RecNo already exists. Please provide a different RecNo.');
+      
+      const dateValue = document.getElementById('date').value;
+      if (!dateValue) {
+        alert('Please select a date.');
         return;
       }
       
-      let packet = {
+      const [year, month] = dateValue.split('-');
+      const savePath = `packets/${year}/${month}`;
+      
+      let packetData = {
         entryType: currentMode,
-        recNo: enteredRecNo,
-        date: document.getElementById('date').value,
+        recNo: document.getElementById('recNo').value,
+        date: dateValue,
         email: document.getElementById('email').value,
         price: document.getElementById('price').value,
       };
 
       if (currentMode === 'courier') {
-          Object.assign(packet, {
+          Object.assign(packetData, {
             senderName: document.getElementById('senderName').value,
             senderAddress: document.getElementById('senderAddress').value,
             senderContact: document.getElementById('senderContact').value,
@@ -803,90 +800,99 @@
             courierTicket: document.getElementById('courierTicket').value
           });
       } else { // ticketing
-          const flightSegments = getFlightSegments();
-          Object.assign(packet, {
+          Object.assign(packetData, {
             passengerName: document.getElementById('passengerName').value,
             passengerContact: document.getElementById('passengerContact').value,
             pnrNumber: document.getElementById('pnrNumber').value,
             ticketNumber: document.getElementById('ticketNumber').value,
             tripType: document.getElementById('tripType').value,
-            fareDetails: {
-                base: document.getElementById('baseFare').value,
-                taxes: document.getElementById('taxes').value,
-            },
-            flightSegments: flightSegments,
+            fareDetails: { base: document.getElementById('baseFare').value, taxes: document.getElementById('taxes').value },
+            flightSegments: getFlightSegments(),
             luggageWeight: document.getElementById('luggageWeight').value,
             remarks: document.getElementById('remarks').value
           });
       }
 
-      if (isEditing) {
-        database.ref('packets').once('value', (snapshot) => {
-          snapshot.forEach((childSnapshot) => {
-            if (childSnapshot.val().recNo === enteredRecNo) {
-              childSnapshot.ref.update(packet);
+      if (currentEditingPacket) {
+        const oldPath = currentEditingPacket.path;
+        const newPath = `${savePath}/${currentEditingPacket.key}`;
+        if (oldPath !== newPath) {
+            // Date changed, so we need to move the record
+            const updates = {};
+            updates[oldPath] = null; // Delete old record
+            updates[newPath] = packetData; // Add new record
+            await database.ref().update(updates);
+            
+            // Local update: remove old, add new
+            allPackets = allPackets.filter(p => p.key !== currentEditingPacket.key);
+            allPackets.unshift({ ...packetData, key: currentEditingPacket.key, path: newPath });
+            
+        } else {
+            // Date is the same, just update
+            await database.ref(oldPath).update(packetData);
+            
+            // Local update: find and update
+            const index = allPackets.findIndex(p => p.key === currentEditingPacket.key);
+            if (index > -1) {
+                allPackets[index] = { ...allPackets[index], ...packetData };
             }
-          });
-        });
+        }
       } else {
-        database.ref('packets').push(packet);
+        // This is a new record
+        const recNoExists = allPackets.some(p => p.recNo === packetData.recNo && p.date.startsWith(`${year}-${month}`));
+        if (recNoExists) {
+            alert('RecNo already exists for this month. Please provide a different RecNo.');
+            return;
+        }
+        const newRecordRef = await database.ref(savePath).push(packetData);
+        
+        // Local update: add to start of array
+        allPackets.unshift({ ...packetData, key: newRecordRef.key, path: `${savePath}/${newRecordRef.key}`});
       }
-      window.currentEditingRecNo = null;
+      
+      currentEditingPacket = null;
       clearInputs(true);
       displayResults();
-      applyFilter();
     }
     window.saveData = saveData;
 
     function searchData() {
-      searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
-      if (!searchTerm) {
-        displayResults(packets);
-        return;
-      }
-      const searchResults = packets.filter(packet =>
-        Object.values(packet).some(val =>
-          val && val.toString().toLowerCase().includes(searchTerm) ||
-          (Array.isArray(packet.flightSegments) && packet.flightSegments.some(segment =>
-            Object.values(segment).some(segVal => segVal && segVal.toString().toLowerCase().includes(searchTerm))
-          ))
-        )
-      );
-      searchResults.sort((a, b) => {
-        const aRecNoMatch = (a.recNo || '').toString().toLowerCase().includes(searchTerm);
-        const bRecNoMatch = (b.recNo || '').toString().toLowerCase().includes(searchTerm);
-        if (aRecNoMatch && !bRecNoMatch) return -1;
-        if (!aRecNoMatch && bRecNoMatch) return 1;
-        const aDateMatch = (a.date || '').toString().toLowerCase().includes(searchTerm);
-        const bDateMatch = (b.date || '').toString().toLowerCase().includes(searchTerm);
-        if (aDateMatch && !bDateMatch) return -1;
-        if (!aDateMatch && bDateMatch) return 1;
-        const aSenderNameMatch = (a.senderName || '').toString().toLowerCase().includes(searchTerm);
-        const bSenderNameMatch = (b.senderName || '').toString().toLowerCase().includes(searchTerm);
-        if (aSenderNameMatch && !bSenderNameMatch) return -1;
-        if (!aSenderNameMatch && bSenderNameMatch) return 1;
-        return b.recNo - a.recNo;
-      });
-      displayResults(searchResults);
-      const resultsContainer = document.getElementById('results');
-      if (searchResults.length === 0) {
-        const noResultsDiv = document.createElement('div');
-        noResultsDiv.className = 'no-results';
-        noResultsDiv.textContent = 'No results found for "' + searchTerm + '"';
-        resultsContainer.appendChild(noResultsDiv);
-      }
+        searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+        displayResults();
     }
 
-    function displayResults(results = packets) {
-      results.sort((a, b) => b.recNo - a.recNo);
+    function displayResults() {
+      let results = allPackets;
+      
+      if (searchTerm) {
+          results = results.filter(packet =>
+            Object.values(packet).some(val =>
+              val && val.toString().toLowerCase().includes(searchTerm) ||
+              (Array.isArray(packet.flightSegments) && packet.flightSegments.some(segment =>
+                Object.values(segment).some(segVal => segVal && segVal.toString().toLowerCase().includes(searchTerm))
+              ))
+            )
+          );
+      }
+      
+      results.sort((a, b) => new Date(b.date) - new Date(a.date) || b.recNo - a.recNo);
+
       const resultsContainer = document.getElementById('results');
       resultsContainer.innerHTML = '';
+      
+      if (results.length === 0) {
+        const noResultsDiv = document.createElement('div');
+        noResultsDiv.className = 'no-results';
+        noResultsDiv.textContent = searchTerm ? `No results found for "${searchTerm}"` : (allPackets.length > 0 ? 'No results for current filter' : 'No records found.');
+        resultsContainer.appendChild(noResultsDiv);
+        calculateAndDisplayTotal([]);
+        return;
+      }
+
       results.forEach((packet) => {
         const packetDiv = document.createElement('div');
         packetDiv.className = 'packet';
         
-        const originalIndex = packets.findIndex(p => p.recNo === packet.recNo);
-
         if (packet.entryType === 'ticketing') {
             const itineraryHTML = renderItinerary(packet);
             const fareText = packet.fareDetails ? `Base: ${packet.fareDetails.base}, Tax: ${packet.fareDetails.taxes}` : 'N/A';
@@ -935,20 +941,21 @@
 
         const actionsContainer = document.createElement('div');
         actionsContainer.innerHTML = `
-          <button onclick="editPacket(${originalIndex})">Edit</button>
-          <button onclick="deletePacket(${originalIndex})" style="background-color: var(--accent-red-alt);">Delete</button>
-          <button onclick="copyToClipboard(${originalIndex})">Copy</button>
-          <button onclick="copyForPrint(${originalIndex})">Print</button>
-          <button onclick="sendMail(${originalIndex})")">Mail</button>
-          <button id="billBtn-${originalIndex}" onclick="downloadBill(${originalIndex})">Bill</button>
+          <button onclick="editPacket('${packet.key}')">Edit</button>
+          <button onclick="deletePacket('${packet.key}')" style="background-color: var(--accent-red-alt);">Delete</button>
+          <button onclick="copyToClipboard('${packet.key}')">Copy</button>
+          <button onclick="copyForPrint('${packet.key}')">Print</button>
+          <button onclick="sendMail('${packet.key}')")">Mail</button>
+          <button id="billBtn-${packet.key}" onclick="downloadBill('${packet.key}')">Bill</button>
         `;
         packetDiv.appendChild(actionsContainer);
         resultsContainer.appendChild(packetDiv);
 
         if (packet.entryType === 'ticketing') {
-            document.getElementById(`billBtn-${originalIndex}`).style.display = 'none';
+            document.getElementById(`billBtn-${packet.key}`).style.display = 'none';
         }
       });
+      calculateAndDisplayTotal(results);
     }
 
     function highlightText(text) {
@@ -973,21 +980,13 @@
     function clearSearch() {
       document.getElementById('searchInput').value = '';
       searchTerm = '';
-      displayResults(packets);
-      calculateAndDisplayTotal(packets);
+      displayResults();
     }
     window.clearSearch = clearSearch;
 
     function handleSearchClick() {
       searchData();
       hideEntrySection();
-      const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
-      const searchResults = packets.filter(packet =>
-        Object.values(packet).some(val =>
-          val && val.toString().toLowerCase().includes(searchTerm)
-        )
-      );
-      calculateAndDisplayTotal(searchResults);
     }
     window.handleSearchClick = handleSearchClick;
 
@@ -998,9 +997,9 @@
       }
     });
 
-    function downloadBill(index) {
-      const packet = packets[index];
-      if (packet.entryType === 'ticketing') return; 
+    function downloadBill(key) {
+      const packet = allPackets.find(p => p.key === key);
+      if (!packet || packet.entryType === 'ticketing') return; 
       const canvas = document.createElement('canvas');
       canvas.width = 2417;
       canvas.height = 1157;
@@ -1058,8 +1057,9 @@
       return result.trim();
     }
 
-    function copyToClipboard(index) {
-      const packet = packets[index];
+    function copyToClipboard(key) {
+      const packet = allPackets.find(p => p.key === key);
+      if (!packet) return;
       let packetText = '';
       if (packet.entryType === 'ticketing') {
         packetText = `
@@ -1103,8 +1103,9 @@
     }
     window.copyToClipboard = copyToClipboard;
 
-    function copyForPrint(index) {
-        const packet = packets[index];
+    function copyForPrint(key) {
+        const packet = allPackets.find(p => p.key === key);
+        if (!packet) return;
         let packetText = '';
         if (packet.entryType === 'ticketing') {
             packetText = `
@@ -1154,8 +1155,9 @@ Item: ${packet.courierTicket}`;
         return Array.from(inputs).map(input => input.value).filter(val => val.trim());
     }
 
-    function sendMail(index) {
-      const packet = packets[index];
+    function sendMail(key) {
+      const packet = allPackets.find(p => p.key === key);
+      if (!packet) return;
       if (!packet.email) {
         alert("No email address found for this entry.");
         return;
@@ -1178,19 +1180,21 @@ Item: ${packet.courierTicket}`;
           return `\nTracking Number: ${tn_trim}\nTracking Link: ${link}`;
         }).join('\n');
         subject = `Your Package Status from Four Direction`;
-        mailBody = `Dear Customer,\n\nWe hope this email finds you well.\n\nWe are pleased to inform you that your recent shipment has been processed and assigned the following tracking information:${trackingInfo}\n\nIf you have any queries about your package please do not hesitate to contact us.\n\nThank you for choosing our service.\n\nBest regards,\nFour Direction Courier\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
+        mailBody = `Dear Customer,\n\nWe hope this email finds you well.\n\nWe are pleased to inform you that your recent shipment has been processed and assigned the following tracking information:${trackingInfo}\n\nIf you have any queries about your package please do not hesitate to contact us.\n\nBest regards,\nFour Direction Courier\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
       }
       window.open(`https://mail.google.com/mail/u/0/?fs=1&tf=cm&to=${encodeURIComponent(packet.email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailBody)}`, '_blank');
     }
     window.sendMail = sendMail;
 
-    function editPacket(index) {
+    function editPacket(key) {
+        const packet = allPackets.find(p => p.key === key);
+        if (!packet) return;
         if (!confirm("Are you sure you want to edit this entry?")) return;
-        const packet = packets[index];
+        
+        currentEditingPacket = packet;
         const packetMode = packet.entryType || 'courier';
         setMode(packetMode);
         
-        window.currentEditingRecNo = packet.recNo;
         clearInputs(true);
 
         document.getElementById('date').value = packet.date || '';
@@ -1517,7 +1521,7 @@ Item: ${packet.courierTicket}`;
         const currentData = getFormDataAsObject();
         const currentDataString = JSON.stringify(currentData, null, 2);
         
-        const lastRecNo = packets.length > 0 ? Math.max(...packets.map(p => parseInt(p.recNo) || 0)) : 0;
+        const lastRecNo = allPackets.length > 0 ? Math.max(...allPackets.map(p => parseInt(p.recNo) || 0)) : 0;
         
         const prompt = `
             A user has uploaded a document (image attached if available) for data entry. The current state of the form is provided as a JSON object. The user now wants to make changes using a voice command.
@@ -1599,9 +1603,8 @@ Item: ${packet.courierTicket}`;
                 (data.flightSegments || []).forEach(segment => addFlightSegment(segment));
             } else if (key === 'trackingNumber') {
                  populateDynamicInputs('trackingInputs', (data.trackingNumber || '').split(','), addTrackingInput);
-            } else if (key === 'fareDetails' && data.fareDetails) {
-                document.getElementById('baseFare').value = data.fareDetails.base || '';
-                document.getElementById('taxes').value = data.fareDetails.taxes || '';
+            } else if (key === 'baseFare' || key === 'taxes') { // Handle baseFare/taxes outside fareDetails
+                 document.getElementById(key).value = data[key] || '';
             } else {
                 const element = document.getElementById(key);
                 if (element) {
@@ -1624,7 +1627,7 @@ Item: ${packet.courierTicket}`;
         try {
             const imagePart = await fileToGenerativePart(file);
             
-            const lastRecNo = packets.length > 0 ? Math.max(...packets.map(p => parseInt(p.recNo) || 0)) : 0;
+            const lastRecNo = allPackets.length > 0 ? Math.max(...allPackets.map(p => parseInt(p.recNo) || 0)) : 0;
             const initialPrompt = currentMode === 'ticketing'
                 ? `Extract flight ticket details. The last receipt number was ${lastRecNo}.`
                 : `Extract courier receipt details. The last receipt number was ${lastRecNo}.`;
@@ -1670,69 +1673,62 @@ Item: ${packet.courierTicket}`;
     function hideEntrySection() {
       document.getElementById('entrySection').style.display = 'none';
     }
-    function deletePacket(index) {
+    async function deletePacket(key) {
+      const packetToDelete = allPackets.find(p => p.key === key);
+      if (!packetToDelete) return;
       if (!confirm("Are you sure you want to delete this entry?")) return;
-      const packetToDelete = packets[index];
-      database.ref('packets').once('value', (snapshot) => {
-        snapshot.forEach((childSnapshot) => {
-          if (childSnapshot.val().recNo === packetToDelete.recNo) {
-            childSnapshot.ref.remove();
-          }
-        });
-      });
+      await database.ref(packetToDelete.path).remove();
+      
+      // Local update
+      allPackets = allPackets.filter(p => p.key !== key);
+      displayResults();
     }
     window.deletePacket = deletePacket;
 
-    function applyFilter() {
-      const selectedOption = document.getElementById('filterSelect').value;
-      const filterFunctions = {
-        'day': applyDayFilter,
-        'week': applyWeekFilter,
-        'month': applyMonthFilter,
-        'year': applyYearFilter,
-        'all': applyAllFilter
-      };
-      if(filterFunctions[selectedOption]) {
-        filterFunctions[selectedOption]();
-      }
-    }
-    window.applyFilter = applyFilter;
+    async function progressivelyLoadData() {
+        const loadingStatus = document.getElementById('loadingStatus');
+        const date = new Date();
+        let year = date.getFullYear();
+        let month = date.getMonth() + 1;
 
-    function applyDayFilter() {
-      const today = new Date().toISOString().split('T')[0];
-      const filteredResults = packets.filter(packet => packet.date === today);
-      displayResults(filteredResults);
-      calculateAndDisplayTotal(filteredResults);
+        // Start by fetching current month
+        await fetchDataForMonth(year, String(month).padStart(2, '0'));
+
+        loadingStatus.textContent = 'Loading older records...';
+
+        for (let i = 0; i < 60; i++) { // Load up to 5 years of data
+            month--;
+            if (month === 0) {
+                month = 12;
+                year--;
+            }
+            await fetchDataForMonth(year, String(month).padStart(2, '0'));
+        }
+
+        loadingStatus.textContent = 'All records loaded.';
+        setTimeout(() => { loadingStatus.textContent = ''; }, 3000);
     }
-    function applyWeekFilter() {
-      const today = new Date();
-      const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - today.getDay());
-      const endOfWeek = new Date(today);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
-      const filteredResults = packets.filter(packet => {
-        const packetDate = new Date(packet.date);
-        return packetDate >= startOfWeek && packetDate <= endOfWeek;
-      });
-      displayResults(filteredResults);
-      calculateAndDisplayTotal(filteredResults);
+
+    async function fetchDataForMonth(year, month) {
+        const dataPath = `packets/${year}/${month}`;
+        const snapshot = await database.ref(dataPath).once('value');
+        
+        if (snapshot.exists()) {
+            const monthPackets = [];
+            snapshot.forEach((childSnapshot) => {
+                monthPackets.push({
+                    ...childSnapshot.val(),
+                    key: childSnapshot.key,
+                    path: `${dataPath}/${childSnapshot.key}`
+                });
+            });
+            allPackets.push(...monthPackets);
+            displayResults();
+            return true;
+        }
+        return false;
     }
-    function applyMonthFilter() {
-      const thisMonth = new Date().toISOString().split('-').slice(0, 2).join('-');
-      const filteredResults = packets.filter(packet => packet.date && packet.date.startsWith(thisMonth));
-      displayResults(filteredResults);
-      calculateAndDisplayTotal(filteredResults);
-    }
-    function applyYearFilter() {
-      const thisYear = new Date().toISOString().split('-')[0];
-      const filteredResults = packets.filter(packet => packet.date && packet.date.startsWith(thisYear));
-      displayResults(filteredResults);
-      calculateAndDisplayTotal(filteredResults);
-    }
-    function applyAllFilter() {
-      displayResults(packets);
-      calculateAndDisplayTotal(packets);
-    }
+
 
     function clearInputs(clearAll = true) {
         const selectors = ['#courierForm input, #courierForm textarea', '#ticketingForm input, #ticketingForm textarea, #ticketingForm select'];
@@ -1745,6 +1741,7 @@ Item: ${packet.courierTicket}`;
         document.getElementById('trackingInputs').innerHTML = `<div class="dynamic-input-group"><input type="text" id="trackingNumber" class="dynamic-input"><button type="button" onclick="addTrackingInput()" style="width: 30px; background-color: var(--accent-green);">+</button></div>`;
         document.getElementById('flightSegmentsContainer').innerHTML = '';
         addFlightSegment(); // Add one blank segment back
+        currentEditingPacket = null; // Clear editing state
     }
 
     function calculateAndDisplayTotal(displayedPackets) {
@@ -1752,7 +1749,7 @@ Item: ${packet.courierTicket}`;
       document.getElementById('totalPrice').textContent = `Total Price: RS.${total.toFixed(2)}`;
     }
 
-    function initializeApp() {
+    async function initializeApp() {
       const savedMode = localStorage.getItem('entryMode') || 'courier';
       setMode(savedMode);
       addFlightSegment();
@@ -1768,7 +1765,7 @@ Item: ${packet.courierTicket}`;
           }
       });
       
-      console.log("Admin verified. Initializing application...");
+      console.log("Admin verified. Loading application.");
       
       database.ref('config/geminiApiKey').once('value', (snapshot) => {
         if (snapshot.exists()) {
@@ -1779,16 +1776,7 @@ Item: ${packet.courierTicket}`;
           showAiMessage("AI features disabled. API key not configured.", "error");
         }
       });
-
-      const packetsRef = database.ref('packets');
-      packetsRef.on('value', (snapshot) => {
-        packets = [];
-        snapshot.forEach((childSnapshot) => {
-          packets.push(childSnapshot.val());
-        });
-        displayResults();
-        applyFilter();
-      });
+      progressivelyLoadData();
     }
 
     const auth = firebase.auth();
