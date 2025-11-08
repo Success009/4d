@@ -197,6 +197,19 @@
     #Save {
       background-color: var(--accent-orange);
     }
+    
+    #undoBtn {
+      background-color: var(--accent-cyan);
+      color: #000;
+    }
+
+    #undoBtn:disabled {
+      background-color: var(--toggle-bg);
+      color: var(--text-color-light);
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
 
     .highlight {
       background-color: var(--highlight-bg);
@@ -558,6 +571,82 @@
         70% { box-shadow: 0 0 0 10px rgba(230, 20, 20, 0); }
         100% { box-shadow: 0 0 0 0 rgba(230, 20, 20, 0); }
     }
+
+    /* Custom Modal Styles */
+    .modal-overlay {
+      display: none; /* Hidden by default */
+      position: fixed;
+      z-index: 3000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: var(--overlay-bg);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background-color: var(--modal-bg);
+      margin: auto;
+      padding: 20px;
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 5px 15px var(--shadow-color);
+      text-align: center;
+      animation: fadeIn 0.3s;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+    }
+
+    .modal-content h3 {
+      margin-top: 0;
+      color: var(--text-color);
+    }
+
+    .modal-content p {
+      color: var(--text-color-light);
+      margin-bottom: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .modal-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      width: auto;
+      min-width: 100px;
+    }
+
+    .modal-btn.confirm {
+      background-color: var(--accent-blue);
+      color: white;
+    }
+    .modal-btn.confirm:hover {
+      background-color: var(--accent-blue-hover);
+    }
+    .modal-btn.cancel {
+      background-color: var(--toggle-bg);
+      color: var(--text-color);
+    }
+    .modal-btn.ok {
+      background-color: var(--accent-blue);
+      color: white;
+    }
+
   </style>
   <title>By Success</title>
   <script type="module">
@@ -583,6 +672,7 @@
     <div>
       <button id="Search" onclick="handleSearchClick()">Search</button>
       <button id="Clear" onclick="clearSearch(); showEntrySection()">Clear Search</button>
+      <button id="undoBtn" onclick="undoLastAction()" disabled>Undo</button>
     </div>
   </div>
   
@@ -722,6 +812,18 @@
     </div>
   </div>
 
+  <div id="customModalOverlay" class="modal-overlay">
+    <div class="modal-content">
+      <h3 id="modalTitle"></h3>
+      <p id="modalMessage"></p>
+      <div class="modal-actions">
+        <button id="modalConfirmBtn" class="modal-btn confirm">Confirm</button>
+        <button id="modalCancelBtn" class="modal-btn cancel">Cancel</button>
+        <button id="modalOkBtn" class="modal-btn ok">OK</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
@@ -740,11 +842,22 @@
     let searchTerm = '';
     let currentMode = 'courier';
     let currentEditingPacket = null; // Stores the full packet object being edited
+    let actionHistory = [];
+    const MAX_HISTORY_SIZE = 10;
 
     window.geminiApiKey = null;
     let lastAnalyzedImagePart = null; // for AI follow-up
     let recognition; // for SpeechRecognition
     let isRecording = false; // for SpeechRecognition state
+
+    function toTitleCase(str) {
+      if (!str) return '';
+      return str
+        .toLowerCase()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    }
 
     function setMode(mode) {
         currentMode = mode;
@@ -757,102 +870,212 @@
     }
     window.setMode = setMode;
 
-    async function saveData() {
-      const requiredInputs = currentMode === 'courier' 
-        ? ['recNo', 'senderName', 'senderContact', 'senderAddress', 'price']
-        : ['recNo', 'passengerName', 'passengerContact', 'price'];
+    // Custom Modal Logic
+    function showModal(title, message, type = 'alert', onConfirm = () => {}) {
+      const overlay = document.getElementById('customModalOverlay');
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalMessage').textContent = message;
 
-      if (requiredInputs.some(id => !document.getElementById(id)?.value.trim())) {
-        alert('Please fill in all required input fields.');
-        return;
-      }
-      
-      const dateValue = document.getElementById('date').value;
-      if (!dateValue) {
-        alert('Please select a date.');
-        return;
-      }
-      
-      const [year, month] = dateValue.split('-');
-      const savePath = `packets/${year}/${month}`;
-      
-      let packetData = {
-        entryType: currentMode,
-        recNo: document.getElementById('recNo').value,
-        date: dateValue,
-        email: document.getElementById('email').value,
-        price: document.getElementById('price').value,
+      const confirmBtn = document.getElementById('modalConfirmBtn');
+      const cancelBtn = document.getElementById('modalCancelBtn');
+      const okBtn = document.getElementById('modalOkBtn');
+
+      confirmBtn.style.display = type === 'confirm' ? 'inline-block' : 'none';
+      cancelBtn.style.display = type === 'confirm' ? 'inline-block' : 'none';
+      okBtn.style.display = type === 'alert' ? 'inline-block' : 'none';
+
+      overlay.style.display = 'flex';
+
+      const closeModal = () => {
+        overlay.style.display = 'none';
+        confirmBtn.onclick = null;
+        cancelBtn.onclick = null;
+        okBtn.onclick = null;
       };
 
-      if (currentMode === 'courier') {
-          Object.assign(packetData, {
-            senderName: document.getElementById('senderName').value,
-            senderAddress: document.getElementById('senderAddress').value,
-            senderContact: document.getElementById('senderContact').value,
-            weightTicket: document.getElementById('weightTicket').value,
-            receiverName: document.getElementById('receiverName').value,
-            receiverAddress: document.getElementById('receiverAddress').value,
-            receiverContact: document.getElementById('receiverContact').value,
-            update: document.getElementById('update').value,
-            billItem: document.getElementById('billItem').value,
-            trackingNumber: getDynamicInputs('trackingInputs').join(','),
-            deliveredDate: document.getElementById('deliveredDate').value,
-            courierTicket: document.getElementById('courierTicket').value
-          });
-      } else { // ticketing
-          Object.assign(packetData, {
-            passengerName: document.getElementById('passengerName').value,
-            passengerContact: document.getElementById('passengerContact').value,
-            pnrNumber: document.getElementById('pnrNumber').value,
-            ticketNumber: document.getElementById('ticketNumber').value,
-            tripType: document.getElementById('tripType').value,
-            fareDetails: { base: document.getElementById('baseFare').value, taxes: document.getElementById('taxes').value },
-            flightSegments: getFlightSegments(),
-            luggageWeight: document.getElementById('luggageWeight').value,
-            remarks: document.getElementById('remarks').value
-          });
-      }
+      confirmBtn.onclick = () => {
+        onConfirm();
+        closeModal();
+      };
+      cancelBtn.onclick = closeModal;
+      okBtn.onclick = closeModal;
+    }
 
-      if (currentEditingPacket) {
-        const oldPath = currentEditingPacket.path;
-        const newPath = `${savePath}/${currentEditingPacket.key}`;
-        if (oldPath !== newPath) {
-            // Date changed, so we need to move the record
-            const updates = {};
-            updates[oldPath] = null; // Delete old record
-            updates[newPath] = packetData; // Add new record
-            await database.ref().update(updates);
-            
-            // Local update: remove old, add new
-            allPackets = allPackets.filter(p => p.key !== currentEditingPacket.key);
-            allPackets.unshift({ ...packetData, key: currentEditingPacket.key, path: newPath });
-            
-        } else {
-            // Date is the same, just update
-            await database.ref(oldPath).update(packetData);
-            
-            // Local update: find and update
-            const index = allPackets.findIndex(p => p.key === currentEditingPacket.key);
-            if (index > -1) {
-                allPackets[index] = { ...allPackets[index], ...packetData };
-            }
+    // --- UNDO FUNCTIONALITY ---
+    function logAction(action) {
+        actionHistory.unshift(action);
+        if (actionHistory.length > MAX_HISTORY_SIZE) {
+            actionHistory.pop();
         }
-      } else {
-        // This is a new record
-        const recNoExists = allPackets.some(p => p.recNo === packetData.recNo && p.date.startsWith(`${year}-${month}`));
-        if (recNoExists) {
-            alert('RecNo already exists for this month. Please provide a different RecNo.');
+        updateUndoButtonState();
+    }
+
+    function updateUndoButtonState() {
+        const undoBtn = document.getElementById('undoBtn');
+        if (undoBtn) {
+            undoBtn.disabled = actionHistory.length === 0;
+        }
+    }
+
+    async function undoLastAction() {
+        if (actionHistory.length === 0) return;
+
+        const lastAction = actionHistory.shift();
+        updateUndoButtonState();
+
+        try {
+            switch (lastAction.type) {
+                case 'add':
+                    await database.ref(lastAction.addedData.path).remove();
+                    allPackets = allPackets.filter(p => p.key !== lastAction.addedData.key);
+                    break;
+                case 'edit':
+                    await database.ref(lastAction.oldData.path).set(lastAction.oldData);
+                    const index = allPackets.findIndex(p => p.key === lastAction.oldData.key);
+                    if (index > -1) {
+                        allPackets[index] = lastAction.oldData;
+                    } else { // Handle cases where path might have changed
+                        allPackets = allPackets.filter(p => p.key !== lastAction.oldData.key);
+                        allPackets.unshift(lastAction.oldData);
+                    }
+                    break;
+                case 'delete':
+                    await database.ref(lastAction.deletedData.path).set(lastAction.deletedData);
+                    allPackets.unshift(lastAction.deletedData);
+                    break;
+            }
+            displayResults();
+            showModal('Success', `Undo successful: '${lastAction.type}' operation reversed.`);
+        } catch (error) {
+            console.error("Undo failed:", error);
+            showModal('Error', 'Could not perform undo operation.');
+            // Re-add the action to the history if the operation failed
+            actionHistory.unshift(lastAction);
+            updateUndoButtonState();
+        }
+    }
+    window.undoLastAction = undoLastAction;
+
+    async function performSave(packetData, oldDataForLog) {
+        const [year, month] = packetData.date.split('-');
+        const savePath = `packets/${year}/${month}`;
+        
+        if (currentEditingPacket) {
+            const oldPath = currentEditingPacket.path;
+            const newPath = `${savePath}/${currentEditingPacket.key}`;
+            const updatedPacket = { ...packetData, key: currentEditingPacket.key, path: newPath };
+
+            logAction({ type: 'edit', oldData: oldDataForLog, newData: updatedPacket });
+            
+            if (oldPath !== newPath) {
+                const updates = {};
+                updates[oldPath] = null;
+                updates[newPath] = packetData;
+                await database.ref().update(updates);
+                allPackets = allPackets.filter(p => p.key !== currentEditingPacket.key);
+                allPackets.unshift(updatedPacket);
+            } else {
+                await database.ref(oldPath).update(packetData);
+                const index = allPackets.findIndex(p => p.key === currentEditingPacket.key);
+                if (index > -1) {
+                    allPackets[index] = updatedPacket;
+                }
+            }
+        } else {
+            const newRecordRef = await database.ref(savePath).push(packetData);
+            const newPacket = { ...packetData, key: newRecordRef.key, path: `${savePath}/${newRecordRef.key}`};
+            allPackets.unshift(newPacket);
+            logAction({ type: 'add', addedData: newPacket });
+        }
+
+        currentEditingPacket = null;
+        clearInputs(true);
+        displayResults();
+    }
+
+    async function saveData() {
+        const requiredInputs = currentMode === 'courier' 
+            ? ['recNo', 'senderName', 'senderContact', 'senderAddress', 'price']
+            : ['recNo', 'passengerName', 'passengerContact', 'price'];
+
+        if (requiredInputs.some(id => !document.getElementById(id)?.value.trim())) {
+            showModal('Input Required', 'Please fill in all required input fields.');
             return;
         }
-        const newRecordRef = await database.ref(savePath).push(packetData);
-        
-        // Local update: add to start of array
-        allPackets.unshift({ ...packetData, key: newRecordRef.key, path: `${savePath}/${newRecordRef.key}`});
-      }
       
-      currentEditingPacket = null;
-      clearInputs(true);
-      displayResults();
+        const dateValue = document.getElementById('date').value;
+        if (!dateValue) {
+            showModal('Input Required', 'Please select a date.');
+            return;
+        }
+      
+        const [year, month] = dateValue.split('-');
+      
+        let packetData = {
+            entryType: currentMode,
+            recNo: document.getElementById('recNo').value,
+            date: dateValue,
+            email: document.getElementById('email').value,
+            price: document.getElementById('price').value,
+        };
+
+        if (currentMode === 'courier') {
+            Object.assign(packetData, {
+                senderName: toTitleCase(document.getElementById('senderName').value),
+                senderAddress: toTitleCase(document.getElementById('senderAddress').value),
+                senderContact: document.getElementById('senderContact').value,
+                weightTicket: document.getElementById('weightTicket').value,
+                receiverName: toTitleCase(document.getElementById('receiverName').value),
+                receiverAddress: toTitleCase(document.getElementById('receiverAddress').value),
+                receiverContact: document.getElementById('receiverContact').value,
+                update: toTitleCase(document.getElementById('update').value),
+                billItem: toTitleCase(document.getElementById('billItem').value),
+                trackingNumber: getDynamicInputs('trackingInputs').join(','),
+                deliveredDate: document.getElementById('deliveredDate').value,
+                courierTicket: toTitleCase(document.getElementById('courierTicket').value)
+            });
+        } else { // ticketing
+            Object.assign(packetData, {
+                passengerName: document.getElementById('passengerName').value,
+                passengerContact: document.getElementById('passengerContact').value,
+                pnrNumber: document.getElementById('pnrNumber').value,
+                ticketNumber: document.getElementById('ticketNumber').value,
+                tripType: document.getElementById('tripType').value,
+                fareDetails: { base: document.getElementById('baseFare').value, taxes: document.getElementById('taxes').value },
+                flightSegments: getFlightSegments(),
+                luggageWeight: document.getElementById('luggageWeight').value,
+                remarks: document.getElementById('remarks').value
+            });
+        }
+        
+        const conflictingPacket = allPackets.find(p => 
+            p.recNo === packetData.recNo && 
+            p.date.startsWith(`${year}-${month}`) &&
+            (!currentEditingPacket || p.key !== currentEditingPacket.key)
+        );
+
+        if (conflictingPacket) {
+            showModal(
+                'Confirm Overwrite', 
+                `RecNo ${packetData.recNo} already exists for this month. Do you want to overwrite the existing entry?`,
+                'confirm',
+                () => {
+                    if (currentEditingPacket && currentEditingPacket.key !== conflictingPacket.key) {
+                        const originalPacketToDelete = {...currentEditingPacket};
+                        database.ref(originalPacketToDelete.path).remove();
+                        allPackets = allPackets.filter(p => p.key !== originalPacketToDelete.key);
+                        logAction({ type: 'delete', deletedData: originalPacketToDelete, reason: `overwrite of RecNo ${conflictingPacket.recNo}` });
+                    }
+                    
+                    const oldDataToLog = {...conflictingPacket};
+                    currentEditingPacket = conflictingPacket;
+                    performSave(packetData, oldDataToLog);
+                }
+            );
+        } else {
+            const oldDataToLog = currentEditingPacket ? {...currentEditingPacket} : null;
+            performSave(packetData, oldDataToLog);
+        }
     }
     window.saveData = saveData;
 
@@ -860,19 +1083,27 @@
         searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
         displayResults();
     }
+    
+    function flattenObjectValues(obj) {
+        let values = '';
+        for (const key in obj) {
+            if (typeof obj[key] === 'object' && obj[key] !== null) {
+                values += flattenObjectValues(obj[key]) + ' ';
+            } else if (obj[key] !== null && typeof obj[key] !== 'undefined') {
+                values += obj[key].toString().toLowerCase() + ' ';
+            }
+        }
+        return values;
+    }
 
     function displayResults() {
       let results = allPackets;
       
       if (searchTerm) {
-          results = results.filter(packet =>
-            Object.values(packet).some(val =>
-              val && val.toString().toLowerCase().includes(searchTerm) ||
-              (Array.isArray(packet.flightSegments) && packet.flightSegments.some(segment =>
-                Object.values(segment).some(segVal => segVal && segVal.toString().toLowerCase().includes(searchTerm))
-              ))
-            )
-          );
+          results = results.filter(packet => {
+              const flatPacket = flattenObjectValues(packet);
+              return flatPacket.includes(searchTerm);
+          });
       }
       
       results.sort((a, b) => new Date(b.date) - new Date(a.date) || b.recNo - a.recNo);
@@ -1099,7 +1330,7 @@
     Item: ${packet.courierTicket}
         `;
       }
-      navigator.clipboard.writeText(packetText.trim()).then(() => alert('Copied to clipboard!'));
+      navigator.clipboard.writeText(packetText.trim()).then(() => showModal('Success', 'Copied to clipboard!'));
     }
     window.copyToClipboard = copyToClipboard;
 
@@ -1128,7 +1359,7 @@ Receiver: ${packet.receiverName} (${packet.receiverContact})
 Address: ${packet.receiverAddress}
 Item: ${packet.courierTicket}`;
         }
-        navigator.clipboard.writeText(packetText.trim()).then(() => alert('Print-friendly text copied!'));
+        navigator.clipboard.writeText(packetText.trim()).then(() => showModal('Success', 'Print-friendly text copied!'));
     }
     window.copyForPrint = copyForPrint;
 
@@ -1159,7 +1390,7 @@ Item: ${packet.courierTicket}`;
       const packet = allPackets.find(p => p.key === key);
       if (!packet) return;
       if (!packet.email) {
-        alert("No email address found for this entry.");
+        showModal("No Email Found", "No email address found for this entry.");
         return;
       }
       let subject = '';
@@ -1187,43 +1418,43 @@ Item: ${packet.courierTicket}`;
     window.sendMail = sendMail;
 
     function editPacket(key) {
-        const packet = allPackets.find(p => p.key === key);
-        if (!packet) return;
-        if (!confirm("Are you sure you want to edit this entry?")) return;
-        
-        currentEditingPacket = packet;
-        const packetMode = packet.entryType || 'courier';
-        setMode(packetMode);
-        
-        clearInputs(true);
+        showModal('Confirm Edit', 'Are you sure you want to edit this entry?', 'confirm', () => {
+            const packet = allPackets.find(p => p.key === key);
+            if (!packet) return;
+            
+            const packetMode = packet.entryType || 'courier';
+            setMode(packetMode);
+            clearInputs(true);
+            currentEditingPacket = packet; // Set after clearing to prevent it from being nulled
+            
+            document.getElementById('date').value = packet.date || '';
+            document.getElementById('recNo').value = packet.recNo || '';
+            document.getElementById('email').value = packet.email || '';
+            document.getElementById('price').value = packet.price || '';
 
-        document.getElementById('date').value = packet.date || '';
-        document.getElementById('recNo').value = packet.recNo || '';
-        document.getElementById('email').value = packet.email || '';
-        document.getElementById('price').value = packet.price || '';
-
-        if (packetMode === 'courier') {
-            ['senderName', 'senderAddress', 'senderContact', 'weightTicket', 'receiverName', 'receiverAddress', 'receiverContact', 'update', 'billItem', 'deliveredDate', 'courierTicket'].forEach(key => {
-                document.getElementById(key).value = packet[key] || '';
-            });
-            populateDynamicInputs('trackingInputs', (packet.trackingNumber || '').split(','), addTrackingInput);
-        } else {
-            ['passengerName', 'passengerContact', 'pnrNumber', 'ticketNumber', 'tripType', 'luggageWeight', 'remarks'].forEach(key => {
-                 document.getElementById(key).value = packet[key] || '';
-            });
-            if (packet.fareDetails) {
-                document.getElementById('baseFare').value = packet.fareDetails.base || '';
-                document.getElementById('taxes').value = packet.fareDetails.taxes || '';
-            }
-            if(packet.flightSegments) {
-                packet.flightSegments.forEach(segmentData => {
-                    addFlightSegment(segmentData);
+            if (packetMode === 'courier') {
+                ['senderName', 'senderAddress', 'senderContact', 'weightTicket', 'receiverName', 'receiverAddress', 'receiverContact', 'update', 'billItem', 'deliveredDate', 'courierTicket'].forEach(key => {
+                    document.getElementById(key).value = packet[key] || '';
                 });
+                populateDynamicInputs('trackingInputs', (packet.trackingNumber || '').split(','), addTrackingInput);
+            } else {
+                ['passengerName', 'passengerContact', 'pnrNumber', 'ticketNumber', 'tripType', 'luggageWeight', 'remarks'].forEach(key => {
+                     document.getElementById(key).value = packet[key] || '';
+                });
+                if (packet.fareDetails) {
+                    document.getElementById('baseFare').value = packet.fareDetails.base || '';
+                    document.getElementById('taxes').value = packet.fareDetails.taxes || '';
+                }
+                if(packet.flightSegments) {
+                    packet.flightSegments.forEach(segmentData => {
+                        addFlightSegment(segmentData);
+                    });
+                }
             }
-        }
-        
-        showEntrySection();
-        window.scrollTo(0, 0);
+            
+            showEntrySection();
+            window.scrollTo(0, 0);
+        });
     }
     window.editPacket = editPacket;
     
@@ -1617,7 +1848,7 @@ Item: ${packet.courierTicket}`;
     window.handleAutofill = async function() {
         const fileInput = document.getElementById('imageUpload');
         if (fileInput.files.length === 0) {
-            alert("Please select an image or PDF file first.");
+            showModal("No File Selected", "Please select an image or PDF file first.");
             return;
         }
         document.getElementById('ai-chat-history').innerHTML = ''; // Clear history
@@ -1674,14 +1905,23 @@ Item: ${packet.courierTicket}`;
       document.getElementById('entrySection').style.display = 'none';
     }
     async function deletePacket(key) {
-      const packetToDelete = allPackets.find(p => p.key === key);
-      if (!packetToDelete) return;
-      if (!confirm("Are you sure you want to delete this entry?")) return;
-      await database.ref(packetToDelete.path).remove();
-      
-      // Local update
-      allPackets = allPackets.filter(p => p.key !== key);
-      displayResults();
+      showModal('Confirm Deletion', 'Are you sure you want to delete this entry? This action cannot be undone.', 'confirm', async () => {
+          const packetToDelete = allPackets.find(p => p.key === key);
+          if (!packetToDelete) return;
+          
+          logAction({ type: 'delete', deletedData: { ...packetToDelete } });
+
+          await database.ref(packetToDelete.path).remove();
+          
+          if (currentEditingPacket && currentEditingPacket.key === key) {
+              currentEditingPacket = null;
+              clearInputs(true);
+          }
+
+          allPackets = allPackets.filter(p => p.key !== key);
+          displayResults();
+          showModal('Success', 'The entry has been deleted.');
+      });
     }
     window.deletePacket = deletePacket;
 
@@ -1741,7 +1981,9 @@ Item: ${packet.courierTicket}`;
         document.getElementById('trackingInputs').innerHTML = `<div class="dynamic-input-group"><input type="text" id="trackingNumber" class="dynamic-input"><button type="button" onclick="addTrackingInput()" style="width: 30px; background-color: var(--accent-green);">+</button></div>`;
         document.getElementById('flightSegmentsContainer').innerHTML = '';
         addFlightSegment(); // Add one blank segment back
-        currentEditingPacket = null; // Clear editing state
+        if(clearAll) {
+          currentEditingPacket = null; // Clear editing state only when doing a full clear
+        }
     }
 
     function calculateAndDisplayTotal(displayedPackets) {
@@ -1765,6 +2007,8 @@ Item: ${packet.courierTicket}`;
           }
       });
       
+      updateUndoButtonState();
+
       console.log("Admin verified. Loading application.");
       
       database.ref('config/geminiApiKey').once('value', (snapshot) => {
