@@ -1,5 +1,4 @@
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -35,7 +34,6 @@
       --ai-box-bg: #fff;
       --ai-box-shadow: rgba(0,0,0,0.15);
     }
-
     body.dark-mode {
       --bg-color: #1a1c20;
       --text-color: #e0e0e0;
@@ -67,7 +65,6 @@
       --ai-box-bg: #2c2f36;
       --ai-box-shadow: rgba(0,0,0,0.3);
     }
-
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
@@ -75,7 +72,6 @@
       color: var(--text-color);
       transition: background-color 0.3s, color 0.3s;
     }
-
     #theme-toggle {
       position: fixed;
       top: 20px;
@@ -94,12 +90,10 @@
       justify-content: center;
       transition: background-color 0.3s, color 0.3s, border-color 0.3s;
     }
-
     #Search {
       background-color: var(--accent-yellow);
       color: #000;
     }
-
     #title {
       text-align: center;
       font-size: 36px;
@@ -107,13 +101,11 @@
       color: var(--title-color);
       width: 100%;
     }
-
     label {
       display: block;
       margin-bottom: 5px;
       font-weight: bold;
     }
-
     input,
     button,
     select,
@@ -125,58 +117,48 @@
       width: 300px;
       transition: background-color 0.3s, color 0.3s, border-color 0.3s;
     }
-
     input[type="datetime-local"] {
         width: 300px;
     }
-
     input,
     select,
     textarea {
       background-color: var(--input-bg);
       color: var(--input-text);
     }
-
     .dynamic-input-group {
       display: flex;
       align-items: center;
       gap: 5px;
       margin-bottom: 10px;
     }
-
     .dynamic-input {
       margin-bottom: 0 !important;
     }
-
     .dynamic-input-group button {
       width: 30px !important;
       padding: 8px 0;
     }
-
     button {
       background-color: var(--accent-green);
       color: white;
       cursor: pointer;
       width: 100px;
     }
-
     #results {
       margin-top: 20px;
       width: 100%;
     }
-
     .packet {
       border: 1px solid var(--packet-border);
       padding: 10px;
       margin-bottom: 10px;
       background-color: var(--packet-bg);
     }
-
     .packet p {
       margin: 5px 0;
       word-wrap: break-word;
     }
-    
     .packet .entry-type-header {
       font-weight: bold;
       font-size: 1.1em;
@@ -605,6 +587,10 @@
       animation: fadeIn 0.3s;
     }
     
+    .modal-content.warning-modal #modalTitle {
+      color: var(--accent-red);
+    }
+
     @keyframes fadeIn {
         from { opacity: 0; transform: scale(0.9); }
         to { opacity: 1; transform: scale(1); }
@@ -858,27 +844,28 @@
     };
     const app = firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
-    
     let allPackets = [];
     const processedKeys = new Set();
     let searchTerm = '';
     let currentMode = 'courier';
-    let currentEditingPacket = null; // Stores the full packet object being edited
+    let currentEditingPacket = null;
     let actionHistory = [];
     const MAX_HISTORY_SIZE = 10;
-
     window.geminiApiKey = null;
-    let lastAnalyzedImagePart = null; // for AI follow-up
-    let recognition; // for SpeechRecognition
-    let isRecording = false; // for SpeechRecognition state
+    let lastAnalyzedImagePart = null;
+    let recognition;
+    let isRecording = false;
 
     function toTitleCase(str) {
       if (!str) return '';
-      return str
-        .toLowerCase()
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
+      return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    }
+
+    function suggestNextRecNo() {
+        if (currentEditingPacket) return;
+        const relevantPackets = allPackets.filter(p => (p.entryType || 'courier') === currentMode);
+        const maxRecNo = relevantPackets.length > 0 ? Math.max(0, ...relevantPackets.map(p => parseInt(p.recNo, 10)).filter(n => !isNaN(n))) : 0;
+        document.getElementById('recNo').value = maxRecNo + 1;
     }
 
     function setMode(mode) {
@@ -887,71 +874,57 @@
         document.getElementById('courierForm').style.display = mode === 'courier' ? 'block' : 'none';
         document.getElementById('ticketingForm').style.display = mode === 'ticketing' ? 'block' : 'none';
         document.getElementById('manifestForm').style.display = mode === 'manifest' ? 'block' : 'none';
-        
         document.getElementById('courier-mode-btn').classList.toggle('active', mode === 'courier');
         document.getElementById('ticketing-mode-btn').classList.toggle('active', mode === 'ticketing');
         document.getElementById('manifest-mode-btn').classList.toggle('active', mode === 'manifest');
-        
         document.getElementById('recNoLabel').textContent = mode === 'manifest' ? 'Manifest No:' : 'Rec NO:';
-
         clearInputs(false);
+        suggestNextRecNo();
         displayResults();
     }
     window.setMode = setMode;
 
-    // Custom Modal Logic
-    function showModal(title, message, type = 'alert', onConfirm = () => {}) {
-      const overlay = document.getElementById('customModalOverlay');
-      document.getElementById('modalTitle').textContent = title;
-      document.getElementById('modalMessage').textContent = message;
-
-      const confirmBtn = document.getElementById('modalConfirmBtn');
-      const cancelBtn = document.getElementById('modalCancelBtn');
-      const okBtn = document.getElementById('modalOkBtn');
-
-      confirmBtn.style.display = type === 'confirm' ? 'inline-block' : 'none';
-      cancelBtn.style.display = type === 'confirm' ? 'inline-block' : 'none';
-      okBtn.style.display = type === 'alert' ? 'inline-block' : 'none';
-
-      overlay.style.display = 'flex';
-
-      const closeModal = () => {
-        overlay.style.display = 'none';
-        confirmBtn.onclick = null;
-        cancelBtn.onclick = null;
-        okBtn.onclick = null;
-      };
-
-      confirmBtn.onclick = () => {
-        onConfirm();
-        closeModal();
-      };
-      cancelBtn.onclick = closeModal;
-      okBtn.onclick = closeModal;
+    function showModal(title, message, type = 'alert', onConfirm = () => {}, options = {}) {
+        const { isWarning = false } = options;
+        const overlay = document.getElementById('customModalOverlay');
+        const modalContent = overlay.querySelector('.modal-content');
+        modalContent.classList.toggle('warning-modal', isWarning);
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalMessage').textContent = message;
+        const confirmBtn = document.getElementById('modalConfirmBtn');
+        const cancelBtn = document.getElementById('modalCancelBtn');
+        const okBtn = document.getElementById('modalOkBtn');
+        confirmBtn.style.display = type === 'confirm' ? 'inline-block' : 'none';
+        cancelBtn.style.display = type === 'confirm' ? 'inline-block' : 'none';
+        okBtn.style.display = type === 'alert' ? 'inline-block' : 'none';
+        overlay.style.display = 'flex';
+        const closeModal = () => {
+            overlay.style.display = 'none';
+            confirmBtn.onclick = null;
+            cancelBtn.onclick = null;
+            okBtn.onclick = null;
+            modalContent.classList.remove('warning-modal');
+        };
+        confirmBtn.onclick = () => { onConfirm(); closeModal(); };
+        cancelBtn.onclick = closeModal;
+        okBtn.onclick = closeModal;
     }
 
-    // --- UNDO FUNCTIONALITY ---
     function logAction(action) {
         actionHistory.unshift(action);
-        if (actionHistory.length > MAX_HISTORY_SIZE) {
-            actionHistory.pop();
-        }
+        if (actionHistory.length > MAX_HISTORY_SIZE) actionHistory.pop();
         updateUndoButtonState();
     }
 
     function updateUndoButtonState() {
         const undoBtn = document.getElementById('undoBtn');
-        if (undoBtn) {
-            undoBtn.disabled = actionHistory.length === 0;
-        }
+        if (undoBtn) undoBtn.disabled = actionHistory.length === 0;
     }
 
     async function undoLastAction() {
         if (actionHistory.length === 0) return;
-
         const lastAction = actionHistory.shift();
         updateUndoButtonState();
-
         try {
             switch (lastAction.type) {
                 case 'add':
@@ -963,7 +936,7 @@
                     const index = allPackets.findIndex(p => p.key === lastAction.oldData.key);
                     if (index > -1) {
                         allPackets[index] = lastAction.oldData;
-                    } else { // Handle cases where path might have changed
+                    } else {
                         allPackets = allPackets.filter(p => p.key !== lastAction.oldData.key);
                         allPackets.unshift(lastAction.oldData);
                     }
@@ -978,7 +951,6 @@
         } catch (error) {
             console.error("Undo failed:", error);
             showModal('Error', 'Could not perform undo operation.');
-            // Re-add the action to the history if the operation failed
             actionHistory.unshift(lastAction);
             updateUndoButtonState();
         }
@@ -987,18 +959,13 @@
 
     async function performSave(packetData, oldDataForLog) {
         const [year, month] = packetData.date.split('-');
-        const saveRoot = packetData.entryType === 'courier' ? 'courier_packets'
-                     : packetData.entryType === 'ticketing' ? 'ticketing_packets'
-                     : 'manifest_packets';
+        const saveRoot = packetData.entryType === 'courier' ? 'courier_packets' : packetData.entryType === 'ticketing' ? 'ticketing_packets' : 'manifest_packets';
         const savePath = `${saveRoot}/${year}/${month}`;
-        
         if (currentEditingPacket) {
             const oldPath = currentEditingPacket.path;
             const newPath = `${savePath}/${currentEditingPacket.key}`;
             const updatedPacket = { ...packetData, key: currentEditingPacket.key, path: newPath };
-
             logAction({ type: 'edit', oldData: oldDataForLog, newData: updatedPacket });
-            
             if (oldPath !== newPath) {
                 const updates = {};
                 updates[oldPath] = null;
@@ -1009,9 +976,7 @@
             } else {
                 await database.ref(oldPath).update(packetData);
                 const index = allPackets.findIndex(p => p.key === currentEditingPacket.key);
-                if (index > -1) {
-                    allPackets[index] = updatedPacket;
-                }
+                if (index > -1) allPackets[index] = updatedPacket;
             }
         } else {
             const newRecordRef = await database.ref(savePath).push(packetData);
@@ -1019,32 +984,22 @@
             allPackets.unshift(newPacket);
             logAction({ type: 'add', addedData: newPacket });
         }
-
         currentEditingPacket = null;
         clearInputs(true);
         displayResults();
     }
 
     async function saveData() {
-        const requiredInputs = currentMode === 'courier' 
-            ? ['recNo', 'senderName', 'senderContact', 'senderAddress', 'price']
-            : currentMode === 'ticketing'
-            ? ['recNo', 'passengerName', 'passengerContact', 'price']
-            : ['recNo', 'manifestReceiverName', 'receiverCountry', 'price'];
-
+        const requiredInputs = currentMode === 'courier' ? ['recNo', 'senderName', 'senderContact', 'senderAddress', 'price'] : currentMode === 'ticketing' ? ['recNo', 'passengerName', 'passengerContact', 'price'] : ['recNo', 'manifestReceiverName', 'receiverCountry', 'price'];
         if (requiredInputs.some(id => !document.getElementById(id)?.value.trim())) {
             showModal('Input Required', `Please fill in all required input fields for ${currentMode}.`);
             return;
         }
-      
         const dateValue = document.getElementById('date').value;
         if (!dateValue) {
             showModal('Input Required', 'Please select a date.');
             return;
         }
-      
-        const [year, month] = dateValue.split('-');
-      
         let packetData = {
             entryType: currentMode,
             recNo: document.getElementById('recNo').value,
@@ -1052,7 +1007,6 @@
             email: document.getElementById('email').value,
             price: document.getElementById('price').value,
         };
-
         if (currentMode === 'courier') {
             Object.assign(packetData, {
                 senderName: toTitleCase(document.getElementById('senderName').value),
@@ -1085,21 +1039,18 @@
                 pack: document.getElementById('pack').value,
                 receiverName: toTitleCase(document.getElementById('manifestReceiverName').value),
                 receiverCountry: toTitleCase(document.getElementById('receiverCountry').value),
-                update: toTitleCase(document.getElementById('manifestGateway').value) // re-using 'update' for gateway
+                update: toTitleCase(document.getElementById('manifestGateway').value)
             });
         }
-        
         const conflictingPacket = allPackets.find(p =>
-            p.entryType === packetData.entryType &&
+            (p.entryType || 'courier') === packetData.entryType &&
             p.recNo === packetData.recNo && 
-            p.date.startsWith(`${year}-${month}`) &&
             (!currentEditingPacket || p.key !== currentEditingPacket.key)
         );
-
         if (conflictingPacket) {
             showModal(
                 'Confirm Overwrite', 
-                `${currentMode === 'manifest' ? 'Manifest No' : 'RecNo'} ${packetData.recNo} already exists for this month. Do you want to overwrite it?`,
+                `A packet with ${currentMode === 'manifest' ? 'Manifest No.' : 'Rec No.'} '${packetData.recNo}' already exists. Are you sure you want to replace it?`,
                 'confirm',
                 () => {
                     if (currentEditingPacket && currentEditingPacket.key !== conflictingPacket.key) {
@@ -1108,11 +1059,11 @@
                         allPackets = allPackets.filter(p => p.key !== originalPacketToDelete.key);
                         logAction({ type: 'delete', deletedData: originalPacketToDelete, reason: `overwrite of RecNo ${conflictingPacket.recNo}` });
                     }
-                    
                     const oldDataToLog = {...conflictingPacket};
                     currentEditingPacket = conflictingPacket;
                     performSave(packetData, oldDataToLog);
-                }
+                },
+                { isWarning: true }
             );
         } else {
             const oldDataToLog = currentEditingPacket ? {...currentEditingPacket} : null;
@@ -1140,24 +1091,19 @@
 
     function displayResults() {
       let results = allPackets.filter(p => (p.entryType || 'courier') === currentMode);
-      
       const dateLimit = document.getElementById('dateLimit').value;
       if (dateLimit) {
         results = results.filter(packet => packet.date === dateLimit);
       }
-      
       if (searchTerm) {
           results = results.filter(packet => {
               const flatPacket = flattenObjectValues(packet);
               return flatPacket.includes(searchTerm);
           });
       }
-      
       results.sort((a, b) => new Date(b.date) - new Date(a.date) || b.recNo - a.recNo);
-
       const resultsContainer = document.getElementById('results');
       resultsContainer.innerHTML = '';
-      
       if (results.length === 0) {
         const noResultsDiv = document.createElement('div');
         noResultsDiv.className = 'no-results';
@@ -1167,81 +1113,27 @@
         calculateAndDisplayTotalPackages([]);
         return;
       }
-
       results.forEach((packet) => {
         const packetDiv = document.createElement('div');
         packetDiv.className = 'packet';
-        
         if (packet.entryType === 'ticketing') {
             const itineraryHTML = renderItinerary(packet);
             const fareText = packet.fareDetails ? `Base: ${packet.fareDetails.base}, Tax: ${packet.fareDetails.taxes}` : 'N/A';
-            packetDiv.innerHTML = `
-                <p class="entry-type-header">TICKET</p>
-                <p>Rec NO: ${highlightText(packet.recNo)}</p>
-                <p>Date: ${highlightText(packet.date)}</p>
-                <p>Price: ${highlightText(packet.price)}</p>
-                <p>Passenger Name: ${highlightText(packet.passengerName)}</p>
-                <p>PNR: ${highlightText(packet.pnrNumber)} | Ticket: ${highlightText(packet.ticketNumber)}</p>
-                <p>Trip: ${highlightText(packet.tripType)} | Fare: ${highlightText(fareText)}</p>
-                ${itineraryHTML}
-                <p>Luggage: ${highlightText(packet.luggageWeight)}</p>
-                <p>Remarks: ${highlightText(packet.remarks)}</p>
-            `;
+            packetDiv.innerHTML = `<p class="entry-type-header">TICKET</p><p>Rec NO: ${highlightText(packet.recNo)}</p><p>Date: ${highlightText(packet.date)}</p><p>Price: ${highlightText(packet.price)}</p><p>Passenger Name: ${highlightText(packet.passengerName)}</p><p>PNR: ${highlightText(packet.pnrNumber)} | Ticket: ${highlightText(packet.ticketNumber)}</p><p>Trip: ${highlightText(packet.tripType)} | Fare: ${highlightText(fareText)}</p>${itineraryHTML}<p>Luggage: ${highlightText(packet.luggageWeight)}</p><p>Remarks: ${highlightText(packet.remarks)}</p>`;
         } else if (packet.entryType === 'manifest') {
-            packetDiv.innerHTML = `
-                <p class="entry-type-header">MANIFEST</p>
-                <p>Manifest No: ${highlightText(packet.recNo)}</p>
-                <p>Date: ${highlightText(packet.date)}</p>
-                <p>Email: ${highlightText(packet.email)}</p>
-                <p>Price: ${highlightText(packet.price)}</p>
-                <p>Pack: ${highlightText(packet.pack)}</p>
-                <p>Receiver Name: ${highlightText(packet.receiverName)}</p>
-                <p>Receiver Country: ${highlightText(packet.receiverCountry)}</p>
-                <p>Gateway: ${highlightText(packet.update)}</p>
-            `;
-        } else { // Courier or old data
+            packetDiv.innerHTML = `<p class="entry-type-header">MANIFEST</p><p>Manifest No: ${highlightText(packet.recNo)}</p><p>Date: ${highlightText(packet.date)}</p><p>Email: ${highlightText(packet.email)}</p><p>Price: ${highlightText(packet.price)}</p><p>Pack: ${highlightText(packet.pack)}</p><p>Receiver Name: ${highlightText(packet.receiverName)}</p><p>Receiver Country: ${highlightText(packet.receiverCountry)}</p><p>Gateway: ${highlightText(packet.update)}</p>`;
+        } else {
             const trackingNumbers = (packet.trackingNumber || '').split(',').filter(tn => tn.trim());
             const trackingLinks = trackingNumbers.map(tn => {
             const tn_trim = tn.trim();
-            return tn_trim.startsWith('SG')
-                ? `<a href="https://shipglobal.au/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
-                : tn_trim.startsWith('FFC')
-                ? `<a href="https://www.firstflightcanada.com/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>`
-                : `<a href="https://parcelsapp.com/en/tracking/${tn_trim}" target="_blank">${highlightText(tn_trim)}</a>`;
+            return tn_trim.startsWith('SG') ? `<a href="https://shipglobal.au/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>` : tn_trim.startsWith('FFC') ? `<a href="https://www.firstflightcanada.com/tracking?waybill=${tn_trim}&submit=Track" target="_blank">${highlightText(tn_trim)}</a>` : `<a href="https://parcelsapp.com/en/tracking/${tn_trim}" target="_blank">${highlightText(tn_trim)}</a>`;
             }).join(', ');
-            packetDiv.innerHTML = `
-                <p class="entry-type-header">COURIER</p>
-                <p>Rec NO: ${highlightText(packet.recNo)}</p>
-                <p>Date: ${highlightText(packet.date)}</p>
-                <p>Email: ${highlightText(packet.email)}</p>
-                <p>Sender Name: ${highlightText(packet.senderName)}</p>
-                <p>Sender Address: ${highlightText(packet.senderAddress)}</p>
-                <p>Sender Contact: ${highlightText(packet.senderContact)}</p>
-                <p>Weight KG: ${highlightText(packet.weightTicket)}</p>
-                <p>Price: ${highlightText(packet.price)}</p>
-                <p>Receiver Name: ${highlightText(packet.receiverName)}</p>
-                <p>Receiver Address: ${highlightText(packet.receiverAddress)}</p>
-                <p>Receiver Contact: ${highlightText(packet.receiverContact)}</p>
-                <p>Gateway: ${highlightText(packet.update)}</p>
-                <p>Bill Item: ${highlightText(packet.billItem)}</p>
-                <p>Tracking Number(s): ${trackingLinks}</p>
-                <p>Delivered Date: ${highlightText(packet.deliveredDate)}</p>
-                <p>Item: ${highlightText(packet.courierTicket)}</p>
-            `;
+            packetDiv.innerHTML = `<p class="entry-type-header">COURIER</p><p>Rec NO: ${highlightText(packet.recNo)}</p><p>Date: ${highlightText(packet.date)}</p><p>Email: ${highlightText(packet.email)}</p><p>Sender Name: ${highlightText(packet.senderName)}</p><p>Sender Address: ${highlightText(packet.senderAddress)}</p><p>Sender Contact: ${highlightText(packet.senderContact)}</p><p>Weight KG: ${highlightText(packet.weightTicket)}</p><p>Price: ${highlightText(packet.price)}</p><p>Receiver Name: ${highlightText(packet.receiverName)}</p><p>Receiver Address: ${highlightText(packet.receiverAddress)}</p><p>Receiver Contact: ${highlightText(packet.receiverContact)}</p><p>Gateway: ${highlightText(packet.update)}</p><p>Bill Item: ${highlightText(packet.billItem)}</p><p>Tracking Number(s): ${trackingLinks}</p><p>Delivered Date: ${highlightText(packet.deliveredDate)}</p><p>Item: ${highlightText(packet.courierTicket)}</p>`;
         }
-
         const actionsContainer = document.createElement('div');
-        actionsContainer.innerHTML = `
-          <button onclick="editPacket('${packet.key}')">Edit</button>
-          <button onclick="deletePacket('${packet.key}')" style="background-color: var(--accent-red-alt);">Delete</button>
-          <button onclick="copyToClipboard('${packet.key}')">Copy</button>
-          <button onclick="copyForPrint('${packet.key}')">Print</button>
-          <button onclick="sendMail('${packet.key}')")">Mail</button>
-          <button id="billBtn-${packet.key}" onclick="downloadBill('${packet.key}')">Bill</button>
-        `;
+        actionsContainer.innerHTML = `<button onclick="editPacket('${packet.key}')">Edit</button><button onclick="deletePacket('${packet.key}')" style="background-color: var(--accent-red-alt);">Delete</button><button onclick="copyToClipboard('${packet.key}')">Copy</button><button onclick="copyForPrint('${packet.key}')">Print</button><button onclick="sendMail('${packet.key}')")">Mail</button><button id="billBtn-${packet.key}" onclick="downloadBill('${packet.key}')">Bill</button>`;
         packetDiv.appendChild(actionsContainer);
         resultsContainer.appendChild(packetDiv);
-
         if (packet.entryType === 'ticketing' || packet.entryType === 'manifest') {
             document.getElementById(`billBtn-${packet.key}`).style.display = 'none';
         }
@@ -1329,9 +1221,7 @@
     window.downloadBill = downloadBill;
     
     function numberToWords(num) {
-      const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-        'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
-        'Seventeen', 'Eighteen', 'Nineteen'];
+      const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine','Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen','Seventeen', 'Eighteen', 'Nineteen'];
       const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
       num = parseFloat(num);
       if (isNaN(num)) return '';
@@ -1355,54 +1245,11 @@
       if (!packet) return;
       let packetText = '';
       if (packet.entryType === 'ticketing') {
-        packetText = `
-    Entry Type: TICKET
-    Rec NO: ${packet.recNo}
-    Date: ${packet.date}
-    Price: ${packet.price}
-    Passenger Name: ${packet.passengerName}
-    Passenger Contact: ${packet.passengerContact}
-    PNR: ${packet.pnrNumber}
-    Ticket Number: ${packet.ticketNumber}
-    Trip Type: ${packet.tripType}
-    Fare: Base ${packet.fareDetails?.base}, Taxes ${packet.fareDetails?.taxes}
-    Luggage: ${packet.luggageWeight}
-    Remarks: ${packet.remarks}
-    --- Itinerary ---
-    ${(packet.flightSegments || []).map(s => `    ✈️ ${s.depAirport} -> ${s.arrAirport} on ${s.airline} ${s.flightNo}`).join('\n')}
-        `;
+        packetText = `Entry Type: TICKET\nRec NO: ${packet.recNo}\nDate: ${packet.date}\nPrice: ${packet.price}\nPassenger Name: ${packet.passengerName}\nPassenger Contact: ${packet.passengerContact}\nPNR: ${packet.pnrNumber}\nTicket Number: ${packet.ticketNumber}\nTrip Type: ${packet.tripType}\nFare: Base ${packet.fareDetails?.base}, Taxes ${packet.fareDetails?.taxes}\nLuggage: ${packet.luggageWeight}\nRemarks: ${packet.remarks}\n--- Itinerary ---\n${(packet.flightSegments || []).map(s => `    ✈️ ${s.depAirport} -> ${s.arrAirport} on ${s.airline} ${s.flightNo}`).join('\n')}`;
       } else if (packet.entryType === 'manifest') {
-        packetText = `
-    Entry Type: MANIFEST
-    Manifest No: ${packet.recNo}
-    Date: ${packet.date}
-    Email: ${packet.email}
-    Price: ${packet.price}
-    Pack: ${packet.pack}
-    Receiver Name: ${packet.receiverName}
-    Receiver Country: ${packet.receiverCountry}
-    Gateway: ${packet.update}
-        `;
-      } else { // Courier
-        packetText = `
-    Entry Type: COURIER
-    Rec NO: ${packet.recNo}
-    Date: ${packet.date}
-    Email: ${packet.email}
-    Sender Name: ${packet.senderName}
-    Sender Address: ${packet.senderAddress}
-    Sender Contact: ${packet.senderContact}
-    Weight KG: ${packet.weightTicket}
-    Price: ${packet.price}
-    Receiver Name: ${packet.receiverName}
-    Receiver Address: ${packet.receiverAddress}
-    Receiver Contact: ${packet.receiverContact}
-    Gateway: ${packet.update}
-    Bill Item: ${packet.billItem}
-    Tracking Number: ${packet.trackingNumber}
-    Delivered Date: ${packet.deliveredDate}
-    Item: ${packet.courierTicket}
-        `;
+        packetText = `Entry Type: MANIFEST\nManifest No: ${packet.recNo}\nDate: ${packet.date}\nEmail: ${packet.email}\nPrice: ${packet.price}\nPack: ${packet.pack}\nReceiver Name: ${packet.receiverName}\nReceiver Country: ${packet.receiverCountry}\nGateway: ${packet.update}`;
+      } else {
+        packetText = `Entry Type: COURIER\nRec NO: ${packet.recNo}\nDate: ${packet.date}\nEmail: ${packet.email}\nSender Name: ${packet.senderName}\nSender Address: ${packet.senderAddress}\nSender Contact: ${packet.senderContact}\nWeight KG: ${packet.weightTicket}\nPrice: ${packet.price}\nReceiver Name: ${packet.receiverName}\nReceiver Address: ${packet.receiverAddress}\nReceiver Contact: ${packet.receiverContact}\nGateway: ${packet.update}\nBill Item: ${packet.billItem}\nTracking Number: ${packet.trackingNumber}\nDelivered Date: ${packet.deliveredDate}\nItem: ${packet.courierTicket}`;
       }
       navigator.clipboard.writeText(packetText.trim()).then(() => showModal('Success', 'Copied to clipboard!'));
     }
@@ -1413,33 +1260,11 @@
         if (!packet) return;
         let packetText = '';
         if (packet.entryType === 'ticketing') {
-            packetText = `
-Four Direction Travels & Tours - 056-490449
-Passenger: ${packet.passengerName}
-PNR: ${packet.pnrNumber}
-Date: ${packet.date}
-${(packet.flightSegments || []).map(s => `Flight: ${s.airline} ${s.flightNo} from ${s.depAirport} to ${s.arrAirport}`).join('\n')}
-            `;
+            packetText = `Four Direction Travels & Tours - 056-490449\nPassenger: ${packet.passengerName}\nPNR: ${packet.pnrNumber}\nDate: ${packet.date}\n${(packet.flightSegments || []).map(s => `Flight: ${s.airline} ${s.flightNo} from ${s.depAirport} to ${s.arrAirport}`).join('\n')}`;
         } else if (packet.entryType === 'manifest') {
-            packetText = `
-Four Direction - 056-490449
-Manifest No: ${packet.recNo}
-Date: ${packet.date}
-Receiver: ${packet.receiverName} (${packet.receiverCountry})
-Gateway: ${packet.update}
-Pack: ${packet.pack}`;
-        } else { // Courier
-            packetText = `
-Four Direction - 056-490449
-Tracking Number: ${packet.trackingNumber}
-${packet.update}
-Date: ${packet.date}
-Sender: ${packet.senderName} (${packet.senderContact})
-Address: ${packet.senderAddress}
-Weight: ${packet.weightTicket} KG
-Receiver: ${packet.receiverName} (${packet.receiverContact})
-Address: ${packet.receiverAddress}
-Item: ${packet.courierTicket}`;
+            packetText = `Four Direction - 056-490449\nManifest No: ${packet.recNo}\nDate: ${packet.date}\nReceiver: ${packet.receiverName} (${packet.receiverCountry})\nGateway: ${packet.update}\nPack: ${packet.pack}`;
+        } else {
+            packetText = `Four Direction - 056-490449\nTracking Number: ${packet.trackingNumber}\n${packet.update}\nDate: ${packet.date}\nSender: ${packet.senderName} (${packet.senderContact})\nAddress: ${packet.senderAddress}\nWeight: ${packet.weightTicket} KG\nReceiver: ${packet.receiverName} (${packet.receiverContact})\nAddress: ${packet.receiverAddress}\nItem: ${packet.courierTicket}`;
         }
         navigator.clipboard.writeText(packetText.trim()).then(() => showModal('Success', 'Print-friendly text copied!'));
     }
@@ -1449,10 +1274,7 @@ Item: ${packet.courierTicket}`;
         const container = document.getElementById('trackingInputs');
         const div = document.createElement('div');
         div.className = 'dynamic-input-group';
-        div.innerHTML = `
-            <input type="text" class="dynamic-input">
-            <button type="button" onclick="removeDynamicInput(this)" style="background-color: var(--accent-red-alt);">-</button>
-        `;
+        div.innerHTML = `<input type="text" class="dynamic-input"><button type="button" onclick="removeDynamicInput(this)" style="background-color: var(--accent-red-alt);">-</button>`;
         container.appendChild(div);
     }
     window.addTrackingInput = addTrackingInput;
@@ -1477,22 +1299,17 @@ Item: ${packet.courierTicket}`;
       }
       let subject = '';
       let mailBody = '';
-
       if (packet.entryType === 'ticketing') {
         subject = `Your Flight Itinerary from Four Direction - PNR: ${packet.pnrNumber}`;
-        mailBody = `Dear ${packet.passengerName},\n\nWe hope this email finds you well.\n\nPlease find your flight itinerary below:\n\nPNR: ${packet.pnrNumber}\nTicket Number: ${packet.ticketNumber}\n\n${(packet.flightSegments || []).map(s => `Flight: ${s.airline} ${s.flightNo}\nDeparture: ${s.depAirport} at ${new Date(s.depDateTime).toLocaleString()}\nArrival: ${s.arrAirport} at ${new Date(s.arrDateTime).toLocaleString()}\n`).join('\n')}\nThank you for choosing our service.\n\nBest regards,\nFour Direction Travels & Tours\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
+        mailBody = `Dear ${packet.passengerName},\n\nPlease find your flight itinerary below:\n\nPNR: ${packet.pnrNumber}\nTicket Number: ${packet.ticketNumber}\n\n${(packet.flightSegments || []).map(s => `Flight: ${s.airline} ${s.flightNo}\nDeparture: ${s.depAirport} at ${new Date(s.depDateTime).toLocaleString()}\nArrival: ${s.arrAirport} at ${new Date(s.arrDateTime).toLocaleString()}\n`).join('\n')}\nThank you for choosing our service.\n\nBest regards,\nFour Direction Travels & Tours\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
       } else if (packet.entryType === 'manifest') {
         subject = `Your Manifest Details from Four Direction`;
         mailBody = `Dear Customer,\n\nHere are your manifest details:\n\nManifest No: ${packet.recNo}\nDate: ${packet.date}\nReceiver: ${packet.receiverName} in ${packet.receiverCountry}\n\nBest regards,\nFour Direction\n056-490499 , 9855020449\nBhatpur-10, Hakim Chowk, Chitwan`;
-      } else { // Courier
+      } else {
         const trackingNumbers = (packet.trackingNumber || '').split(',').filter(t => t.trim());
         const trackingInfo = trackingNumbers.map(tn => {
           const tn_trim = tn.trim();
-          const link = tn_trim.startsWith('SG')
-            ? `https://shipglobal.au/tracking?waybill=${encodeURIComponent(tn_trim)}&submit=Track`
-            : tn_trim.startsWith('FFC')
-              ? `https://www.firstflightcanada.com/tracking?waybill=${encodeURIComponent(tn_trim)}&submit=Track`
-              : `https://parcelsapp.com/en/tracking/${encodeURIComponent(tn_trim)}`;
+          const link = tn_trim.startsWith('SG') ? `https://shipglobal.au/tracking?waybill=${encodeURIComponent(tn_trim)}&submit=Track` : tn_trim.startsWith('FFC') ? `https://www.firstflightcanada.com/tracking?waybill=${encodeURIComponent(tn_trim)}&submit=Track` : `https://parcelsapp.com/en/tracking/${encodeURIComponent(tn_trim)}`;
           return `\nTracking Number: ${tn_trim}\nTracking Link: ${link}`;
         }).join('\n');
         subject = `Your Package Status from Four Direction`;
@@ -1506,17 +1323,14 @@ Item: ${packet.courierTicket}`;
         showModal('Confirm Edit', 'Are you sure you want to edit this entry?', 'confirm', () => {
             const packet = allPackets.find(p => p.key === key);
             if (!packet) return;
-            
             const packetMode = packet.entryType || 'courier';
             setMode(packetMode);
             clearInputs(true);
-            currentEditingPacket = packet; // Set after clearing to prevent it from being nulled
-            
+            currentEditingPacket = packet;
             document.getElementById('date').value = packet.date || '';
             document.getElementById('recNo').value = packet.recNo || '';
             document.getElementById('email').value = packet.email || '';
             document.getElementById('price').value = packet.price || '';
-
             if (packetMode === 'courier') {
                 ['senderName', 'senderAddress', 'senderContact', 'weightTicket', 'receiverName', 'receiverAddress', 'receiverContact', 'update', 'billItem', 'deliveredDate', 'courierTicket'].forEach(key => {
                     document.getElementById(key).value = packet[key] || '';
@@ -1531,9 +1345,7 @@ Item: ${packet.courierTicket}`;
                     document.getElementById('taxes').value = packet.fareDetails.taxes || '';
                 }
                 if(packet.flightSegments) {
-                    packet.flightSegments.forEach(segmentData => {
-                        addFlightSegment(segmentData);
-                    });
+                    packet.flightSegments.forEach(segmentData => addFlightSegment(segmentData));
                 }
             } else if (packetMode === 'manifest') {
                 document.getElementById('pack').value = packet.pack || '';
@@ -1541,7 +1353,6 @@ Item: ${packet.courierTicket}`;
                 document.getElementById('receiverCountry').value = packet.receiverCountry || '';
                 document.getElementById('manifestGateway').value = packet.update || '';
             }
-            
             showEntrySection();
             window.scrollTo(0, 0);
         });
@@ -1553,49 +1364,25 @@ Item: ${packet.courierTicket}`;
         container.innerHTML = '';
         const addBtnHTML = `<button type="button" onclick="${addFunction.name}()" style="width: 30px; background-color: var(--accent-green);">+</button>`;
         const initialGroupHTML = `<div class="dynamic-input-group"><input type="text" id="trackingNumber" class="dynamic-input">${addBtnHTML}</div>`;
-
         if (!values || values.length === 0 || values.every(v => !v.trim())) {
             container.innerHTML = initialGroupHTML;
             return;
         }
-
         values.forEach((value, index) => {
             const div = document.createElement('div');
             div.className = 'dynamic-input-group';
-            const buttonHTML = index === 0 
-                ? addBtnHTML
-                : `<button type="button" onclick="removeDynamicInput(this)" style="background-color: var(--accent-red-alt);">-</button>`;
+            const buttonHTML = index === 0 ? addBtnHTML : `<button type="button" onclick="removeDynamicInput(this)" style="background-color: var(--accent-red-alt);">-</button>`;
             div.innerHTML = `<input type="text" class="dynamic-input" value="${value.trim()}"> ${buttonHTML}`;
             container.appendChild(div);
         });
     }
 
-    // --- NEW TICKETING & AI FUNCTIONS ---
     window.addFlightSegment = function(data = {}) {
         const container = document.getElementById('flightSegmentsContainer');
         const segmentCount = container.getElementsByClassName('flight-segment').length;
         const div = document.createElement('div');
         div.className = 'flight-segment';
-        div.innerHTML = `
-            <h4>Segment ${segmentCount + 1}</h4>
-            <div class="segment-row">
-                <input type="text" class="segment-airline" placeholder="Airline" value="${data.airline || ''}">
-                <input type="text" class="segment-flightNo" placeholder="Flight No." value="${data.flightNo || ''}">
-                <input type="text" class="segment-aircraft" placeholder="Aircraft" value="${data.aircraft || ''}">
-            </div>
-            <div class="segment-row">
-                <input type="text" class="segment-depAirport" placeholder="Departure Airport" value="${data.depAirport || ''}">
-                <input type="datetime-local" class="segment-depDateTime" title="Departure Date & Time" value="${data.depDateTime || ''}">
-            </div>
-            <div class="segment-row">
-                <input type="text" class="segment-arrAirport" placeholder="Arrival Airport" value="${data.arrAirport || ''}">
-                <input type="datetime-local" class="segment-arrDateTime" title="Arrival Date & Time" value="${data.arrDateTime || ''}">
-            </div>
-            <div class="segment-row">
-                <input type="text" class="segment-terminal" placeholder="Terminal" value="${data.terminal || ''}">
-                <button type="button" onclick="removeFlightSegment(this)" style="background-color: var(--accent-red-alt); width: 100px;">Remove</button>
-            </div>
-        `;
+        div.innerHTML = `<h4>Segment ${segmentCount + 1}</h4><div class="segment-row"><input type="text" class="segment-airline" placeholder="Airline" value="${data.airline || ''}"><input type="text" class="segment-flightNo" placeholder="Flight No." value="${data.flightNo || ''}"><input type="text" class="segment-aircraft" placeholder="Aircraft" value="${data.aircraft || ''}"></div><div class="segment-row"><input type="text" class="segment-depAirport" placeholder="Departure Airport" value="${data.depAirport || ''}"><input type="datetime-local" class="segment-depDateTime" title="Departure Date & Time" value="${data.depDateTime || ''}"></div><div class="segment-row"><input type="text" class="segment-arrAirport" placeholder="Arrival Airport" value="${data.arrAirport || ''}"><input type="datetime-local" class="segment-arrDateTime" title="Arrival Date & Time" value="${data.arrDateTime || ''}"></div><div class="segment-row"><input type="text" class="segment-terminal" placeholder="Terminal" value="${data.terminal || ''}"><button type="button" onclick="removeFlightSegment(this)" style="background-color: var(--accent-red-alt); width: 100px;">Remove</button></div>`;
         container.appendChild(div);
     }
     
@@ -1643,20 +1430,12 @@ Item: ${packet.courierTicket}`;
         if (!packet.flightSegments || packet.flightSegments.length === 0) return '';
         let itineraryHTML = '<div class="itinerary-display">';
         let totalFlightMinutes = 0, totalLayoverMinutes = 0;
-
         packet.flightSegments.forEach((segment, index) => {
             const depDate = new Date(segment.depDateTime);
             const arrDate = new Date(segment.arrDateTime);
             const flightMinutes = !isNaN(depDate) && !isNaN(arrDate) ? (arrDate - depDate) / 60000 : 0;
             totalFlightMinutes += flightMinutes > 0 ? flightMinutes : 0;
-            
-            itineraryHTML += `
-                <div class="itinerary-segment">
-                    ✈️ <span>${highlightText(segment.depAirport)} → ${highlightText(segment.arrAirport)}</span> (${highlightText(segment.airline)} ${highlightText(segment.flightNo)})
-                    <br>&nbsp;&nbsp;&nbsp;&nbsp;Aircraft: ${highlightText(segment.aircraft)} | Duration: ${formatDuration(flightMinutes)}
-                </div>
-            `;
-
+            itineraryHTML += `<div class="itinerary-segment">✈️ <span>${highlightText(segment.depAirport)} → ${highlightText(segment.arrAirport)}</span> (${highlightText(segment.airline)} ${highlightText(segment.flightNo)})<br>&nbsp;&nbsp;&nbsp;&nbsp;Aircraft: ${highlightText(segment.aircraft)} | Duration: ${formatDuration(flightMinutes)}</div>`;
             if (index < packet.flightSegments.length - 1) {
                 const nextDepDate = new Date(packet.flightSegments[index+1].depDateTime);
                 const layoverMinutes = !isNaN(arrDate) && !isNaN(nextDepDate) ? (nextDepDate - arrDate) / 60000 : 0;
@@ -1664,14 +1443,10 @@ Item: ${packet.courierTicket}`;
                 itineraryHTML += `<div class="itinerary-layover">🔄 Layover: ${formatDuration(layoverMinutes)}</div>`;
             }
         });
-        
         const firstSegDate = new Date(packet.flightSegments[0].depDateTime);
         const lastSegDate = new Date(packet.flightSegments[packet.flightSegments.length - 1].arrDateTime);
         const totalJourneyMinutes = !isNaN(firstSegDate) && !isNaN(lastSegDate) ? (lastSegDate - firstSegDate) / 60000 : 0;
-
-        itineraryHTML += `<div class="itinerary-summary">
-            Total Journey: ${formatDuration(totalJourneyMinutes)} (Flight: ${formatDuration(totalFlightMinutes)}, Layover: ${formatDuration(totalLayoverMinutes)})
-        </div></div>`;
+        itineraryHTML += `<div class="itinerary-summary">Total Journey: ${formatDuration(totalJourneyMinutes)} (Flight: ${formatDuration(totalFlightMinutes)}, Layover: ${formatDuration(totalLayoverMinutes)})</div></div>`;
         return itineraryHTML;
     }
 
@@ -1679,13 +1454,8 @@ Item: ${packet.courierTicket}`;
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
-          const imagePart = {
-            inlineData: {
-              data: reader.result.split(',')[1],
-              mimeType: file.type,
-            },
-          };
-          lastAnalyzedImagePart = imagePart; // Store for follow-up
+          const imagePart = { inlineData: { data: reader.result.split(',')[1], mimeType: file.type } };
+          lastAnalyzedImagePart = imagePart;
           resolve(imagePart);
         };
         reader.onerror = reject;
@@ -1731,7 +1501,7 @@ Item: ${packet.courierTicket}`;
                     ai_notes: { type: GenaiType.STRING, description: "Any notes or uncertainties about the extraction."}
                 }
             };
-        } else { // courier
+        } else {
             return {
                 type: GenaiType.OBJECT,
                 properties: {
@@ -1764,11 +1534,8 @@ Item: ${packet.courierTicket}`;
         }
         const { GoogleGenAI } = window;
         const ai = new GoogleGenAI({ apiKey: window.geminiApiKey });
-
         const systemInstruction = "You are an intelligent data entry assistant for 'Four Direction Travels & Tours', a company handling courier and airline tickets. Extract information from the user's request into a JSON object based on the provided schema. Do not invent data. If a value is not present, use an empty string. If generating a new entry, suggest the next receipt number based on the last one provided.";
-        
         const schema = getAiSchema();
-
         try {
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
@@ -1779,7 +1546,6 @@ Item: ${packet.courierTicket}`;
                     responseSchema: schema,
                 },
             });
-
             const data = JSON.parse(response.text);
             populateForm(data);
             const aiNote = data.ai_notes || (isFollowUp ? "Form updated based on your request." : "Data extracted successfully! Please review.");
@@ -1834,36 +1600,16 @@ Item: ${packet.courierTicket}`;
     async function sendAiFollowUp() {
         const userInput = document.getElementById('ai-user-input').value.trim();
         if (!userInput) return;
-        
         showAiMessage(userInput, 'user');
         document.getElementById('ai-user-input').value = '';
         showAiMessage("Thinking...", "info");
-        
         const currentData = getFormDataAsObject();
         const currentDataString = JSON.stringify(currentData, null, 2);
-        
         const lastRecNo = allPackets.length > 0 ? Math.max(...allPackets.map(p => parseInt(p.recNo) || 0)) : 0;
-        
-        const prompt = `
-            A user has uploaded a document (image attached if available) for data entry. The current state of the form is provided as a JSON object. The user now wants to make changes using a voice command.
-            Your task is to analyze the user's command, the attached image, and the current data. Then, generate a complete, updated JSON object that incorporates the user's request. Adhere to the required schema.
-            The last used receipt number was ${lastRecNo}.
-            
-            Current Data:
-            ${currentDataString}
-
-            User's Command (in Nepali or English):
-            "${userInput}"
-
-            Based on this command, review the image and the current data, and provide the final, corrected JSON object. Respond ONLY with the JSON object.
-        `;
-        
+        const prompt = `A user has uploaded a document (image attached if available) for data entry. The current state of the form is provided as a JSON object. The user now wants to make changes using a voice command.\nYour task is to analyze the user's command, the attached image, and the current data. Then, generate a complete, updated JSON object that incorporates the user's request. Adhere to the required schema.\nThe last used receipt number was ${lastRecNo}.\n\nCurrent Data:\n${currentDataString}\n\nUser's Command (in Nepali or English):\n"${userInput}"\n\nBased on this command, review the image and the current data, and provide the final, corrected JSON object. Respond ONLY with the JSON object.`;
         const parts = [];
-        if (lastAnalyzedImagePart) {
-            parts.push(lastAnalyzedImagePart);
-        }
+        if (lastAnalyzedImagePart) parts.push(lastAnalyzedImagePart);
         parts.push({ text: prompt });
-        
         await runGeminiExtraction(parts, true);
     }
 
@@ -1876,10 +1622,9 @@ Item: ${packet.courierTicket}`;
         }
         recognition = new SpeechRecognition();
         recognition.continuous = false;
-        recognition.lang = 'ne-NP'; // Primarily Nepali, but should handle English too.
+        recognition.lang = 'ne-NP';
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;
-
         recognition.onresult = (event) => {
             let transcript = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -1887,19 +1632,16 @@ Item: ${packet.courierTicket}`;
             }
             document.getElementById('ai-user-input').value = transcript;
         };
-
         recognition.onerror = (event) => {
             console.error('Speech recognition error', event.error);
             showAiMessage(`Speech error: ${event.error}`, "error");
         };
-
         recognition.onstart = () => {
             isRecording = true;
             const recordBtn = document.getElementById('ai-record-btn');
             recordBtn.classList.add('recording');
             recordBtn.textContent = '⏹️';
         };
-
         recognition.onend = () => {
             isRecording = false;
             const recordBtn = document.getElementById('ai-record-btn');
@@ -1918,19 +1660,17 @@ Item: ${packet.courierTicket}`;
     }
 
     function populateForm(data) {
-        clearInputs(false); // Clear form before populating
+        clearInputs(false);
         for (const key in data) {
             if (key === 'flightSegments') {
                 (data.flightSegments || []).forEach(segment => addFlightSegment(segment));
             } else if (key === 'trackingNumber') {
                  populateDynamicInputs('trackingInputs', (data.trackingNumber || '').split(','), addTrackingInput);
-            } else if (key === 'baseFare' || key === 'taxes') { // Handle baseFare/taxes outside fareDetails
+            } else if (key === 'baseFare' || key === 'taxes') {
                  document.getElementById(key).value = data[key] || '';
             } else {
                 const element = document.getElementById(key);
-                if (element) {
-                    element.value = data[key];
-                }
+                if (element) element.value = data[key];
             }
         }
     }
@@ -1941,31 +1681,23 @@ Item: ${packet.courierTicket}`;
             showModal("No File Selected", "Please select an image or PDF file first.");
             return;
         }
-        document.getElementById('ai-chat-history').innerHTML = ''; // Clear history
+        document.getElementById('ai-chat-history').innerHTML = '';
         showAiMessage("Analyzing file...", "info");
-        
         const file = fileInput.files[0];
         try {
             const imagePart = await fileToGenerativePart(file);
-            
             const lastRecNo = allPackets.length > 0 ? Math.max(...allPackets.map(p => parseInt(p.recNo) || 0)) : 0;
-            const initialPrompt = currentMode === 'ticketing'
-                ? `Extract flight ticket details. The last receipt number was ${lastRecNo}.`
-                : `Extract courier receipt details. The last receipt number was ${lastRecNo}.`;
-
+            const initialPrompt = currentMode === 'ticketing' ? `Extract flight ticket details. The last receipt number was ${lastRecNo}.` : `Extract courier receipt details. The last receipt number was ${lastRecNo}.`;
             await runGeminiExtraction([imagePart, { text: initialPrompt }], false);
-
         } catch (error) {
             console.error(error);
             showAiMessage("Could not process the file.", "error");
         }
     }
 
-    function showAiMessage(message, type) { // type can be 'user', 'ai', 'info', 'error'
+    function showAiMessage(message, type) {
         const box = document.getElementById('ai-assistant-box');
         const history = document.getElementById('ai-chat-history');
-        
-        // remove any existing info message
         const existingInfo = history.querySelector('.info');
         if (existingInfo && type !== 'info') {
              existingInfo.remove();
@@ -1973,12 +1705,10 @@ Item: ${packet.courierTicket}`;
              existingInfo.textContent = message;
              return;
         }
-
         const msgEl = document.createElement('div');
         msgEl.className = `chat-message ${type}`;
         msgEl.textContent = message;
         history.appendChild(msgEl);
-        
         history.scrollTop = history.scrollHeight;
         box.classList.add('visible');
     }
@@ -1987,31 +1717,24 @@ Item: ${packet.courierTicket}`;
         document.getElementById('ai-assistant-box').classList.remove('visible');
     }
 
-    function showEntrySection() {
-      document.getElementById('entrySection').style.display = 'block';
-    }
+    function showEntrySection() { document.getElementById('entrySection').style.display = 'block'; }
     window.showEntrySection = showEntrySection;
-    function hideEntrySection() {
-      document.getElementById('entrySection').style.display = 'none';
-    }
+    function hideEntrySection() { document.getElementById('entrySection').style.display = 'none'; }
+    
     async function deletePacket(key) {
-      showModal('Confirm Deletion', 'Are you sure you want to delete this entry? This action cannot be undone.', 'confirm', async () => {
+      showModal('Confirm Deletion', 'Are you sure you want to delete this entry? This action cannot be undone via the normal Undo button.', 'confirm', async () => {
           const packetToDelete = allPackets.find(p => p.key === key);
           if (!packetToDelete) return;
-          
           logAction({ type: 'delete', deletedData: { ...packetToDelete } });
-
           await database.ref(packetToDelete.path).remove();
-          
           if (currentEditingPacket && currentEditingPacket.key === key) {
               currentEditingPacket = null;
               clearInputs(true);
           }
-
           allPackets = allPackets.filter(p => p.key !== key);
           displayResults();
           showModal('Success', 'The entry has been deleted.');
-      });
+      }, { isWarning: true });
     }
     window.deletePacket = deletePacket;
 
@@ -2019,68 +1742,76 @@ Item: ${packet.courierTicket}`;
         const loadingStatus = document.getElementById('loadingStatus');
         const date = new Date();
         const dataRoots = ['packets', 'courier_packets', 'ticketing_packets', 'manifest_packets'];
-
-        loadingStatus.textContent = 'Loading records...';
-        
-        let year = date.getFullYear();
-        let month = date.getMonth() + 1;
-
-        for (let i = 0; i < 61; i++) { // current month + 60 older months (5 years)
-            for (const root of dataRoots) {
-                await fetchDataForMonth(root, year, String(month).padStart(2, '0'));
+        let currentYear = date.getFullYear();
+        let currentMonth = date.getMonth() + 1;
+        const fetchBatch = async (numMonths) => {
+            let promises = [];
+            for (let i = 0; i < numMonths; i++) {
+                for (const root of dataRoots) {
+                    promises.push(fetchDataForMonth(root, currentYear, String(currentMonth).padStart(2, '0')));
+                }
+                currentMonth--;
+                if (currentMonth === 0) {
+                    currentMonth = 12;
+                    currentYear--;
+                }
             }
-            month--;
-            if (month === 0) {
-                month = 12;
-                year--;
+            const packetArrays = await Promise.all(promises);
+            const newPackets = packetArrays.flat();
+            if (newPackets.length > 0) {
+                allPackets.push(...newPackets);
+                displayResults();
             }
-        }
-
-        loadingStatus.textContent = 'All records loaded.';
-        setTimeout(() => { loadingStatus.style.display = 'none'; }, 3000);
+        };
+        loadingStatus.textContent = 'Loading recent records...';
+        await fetchBatch(3);
+        loadingStatus.textContent = 'Loading historical records...';
+        const remainingMonthsToLoad = 61 - 3;
+        const BATCH_SIZE = 12;
+        const loadOlderData = async () => {
+            for (let i = 0; i < remainingMonthsToLoad; i += BATCH_SIZE) {
+                const monthsInBatch = Math.min(BATCH_SIZE, remainingMonthsToLoad - i);
+                await fetchBatch(monthsInBatch);
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+            loadingStatus.textContent = 'All records loaded.';
+            setTimeout(() => { loadingStatus.style.display = 'none'; }, 3000);
+        };
+        setTimeout(loadOlderData, 100);
     }
 
     async function fetchDataForMonth(root, year, month) {
         const dataPath = `${root}/${year}/${month}`;
+        const monthPackets = [];
         try {
             const snapshot = await database.ref(dataPath).once('value');
             if (snapshot.exists()) {
-                const monthPackets = [];
                 snapshot.forEach((childSnapshot) => {
                     const key = childSnapshot.key;
                     if (!processedKeys.has(key)) {
-                        monthPackets.push({
-                            ...childSnapshot.val(),
-                            key: key,
-                            path: `${dataPath}/${key}`
-                        });
+                        monthPackets.push({ ...childSnapshot.val(), key: key, path: `${dataPath}/${key}` });
                         processedKeys.add(key);
                     }
                 });
-                if (monthPackets.length > 0) {
-                    allPackets.push(...monthPackets);
-                    displayResults();
-                }
             }
         } catch (error) {
             console.error(`Failed to fetch data from ${dataPath}:`, error);
         }
+        return monthPackets;
     }
-
 
     function clearInputs(clearAll = true) {
         const selectors = ['#courierForm input, #courierForm textarea', '#ticketingForm input, #ticketingForm textarea, #ticketingForm select', '#manifestForm input, #manifestForm textarea'];
-        if (clearAll) {
-            selectors.push('#entrySection > div > input[type="date"], #entrySection > div > input[type="number"], #entrySection > div > input[type="text"]');
-        }
+        if (clearAll) selectors.push('#entrySection > div > input[type="date"], #entrySection > div > input[type="number"], #entrySection > div > input[type="text"]');
         document.querySelectorAll(selectors.join(', ')).forEach(input => {
              if(input.id !== 'adminEmail') input.value = '';
         });
         document.getElementById('trackingInputs').innerHTML = `<div class="dynamic-input-group"><input type="text" id="trackingNumber" class="dynamic-input"><button type="button" onclick="addTrackingInput()" style="width: 30px; background-color: var(--accent-green);">+</button></div>`;
         document.getElementById('flightSegmentsContainer').innerHTML = '';
-        addFlightSegment(); // Add one blank segment back
+        addFlightSegment();
         if(clearAll) {
-          currentEditingPacket = null; // Clear editing state only when doing a full clear
+          currentEditingPacket = null;
+          suggestNextRecNo();
         }
     }
 
@@ -2104,9 +1835,7 @@ Item: ${packet.courierTicket}`;
       const savedMode = localStorage.getItem('entryMode') || 'courier';
       setMode(savedMode);
       addFlightSegment();
-      
       initializeSpeechRecognition();
-
       document.getElementById('dateLimit').addEventListener('change', searchData);
       document.getElementById('ai-record-btn').addEventListener('click', toggleRecording);
       document.getElementById('ai-send-btn').addEventListener('click', sendAiFollowUp);
@@ -2116,11 +1845,8 @@ Item: ${packet.courierTicket}`;
               sendAiFollowUp();
           }
       });
-      
       updateUndoButtonState();
-
       console.log("Admin verified. Loading application.");
-      
       database.ref('config/geminiApiKey').once('value', (snapshot) => {
         if (snapshot.exists()) {
           window.geminiApiKey = snapshot.val();
@@ -2149,15 +1875,11 @@ Item: ${packet.courierTicket}`;
       }
       auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
         .then(() => auth.signInWithEmailAndPassword(email, password))
-        .catch(error => {
-          loginError.textContent = 'Login failed: Incorrect password.';
-        });
+        .catch(error => { loginError.textContent = 'Login failed: Incorrect password.'; });
     }
 
     loginButton.addEventListener('click', performLogin);
-    adminPasswordInput.addEventListener('keyup', (event) => {
-      if (event.key === "Enter") performLogin();
-    });
+    adminPasswordInput.addEventListener('keyup', (event) => { if (event.key === "Enter") performLogin(); });
 
     auth.onAuthStateChanged(user => {
       if (user && user.uid === ADMIN_UID) {
@@ -2183,11 +1905,7 @@ Item: ${packet.courierTicket}`;
       }
     }
     setTheme(localStorage.getItem('theme') || 'light');
-    themeToggle.addEventListener('click', () => {
-      setTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark');
-    });
-
+    themeToggle.addEventListener('click', () => { setTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark'); });
   </script>
 </body>
-
 </html>
