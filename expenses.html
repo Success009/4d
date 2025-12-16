@@ -181,6 +181,7 @@
         const addSection = document.getElementById('addSection');
         const expensesSection = document.getElementById('expensesSection');
         const incomeSection = document.getElementById('incomeSection');
+        
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
             fetchExpenses();
@@ -189,6 +190,7 @@
             timeFilter.addEventListener('change', applyFilters);
             viewSelect.addEventListener('change', handleViewChange);
         });
+
         function fetchExpenses() {
             const expensesRef = database.ref('expenses');
             expensesRef.on('value', (snapshot) => {
@@ -200,17 +202,58 @@
                 applyFilters();
             });
         }
+
+        // --- UPDATED INCOME FETCHING ---
+        // Excludes 'manifest_packets'
+        // Includes 'packets' (legacy), 'courier_packets', 'ticketing_packets'
+        // Recursively unpacks Root -> Year -> Month -> Data
         function fetchIncome() {
-            const packetsRef = database.ref('packets');
-            packetsRef.on('value', (snapshot) => {
-                allIncome = [];
-                snapshot.forEach((childSnapshot) => {
-                    const packet = childSnapshot.val();
-                    allIncome.push({...packet, key: childSnapshot.key});
+            const dataRoots = ['packets', 'courier_packets', 'ticketing_packets'];
+            let tempIncomeStorage = {
+                packets: [],
+                courier_packets: [],
+                ticketing_packets: []
+            };
+
+            dataRoots.forEach(rootNode => {
+                const rootRef = database.ref(rootNode);
+                rootRef.on('value', (snapshot) => {
+                    const rootData = snapshot.val();
+                    const flattenedPackets = [];
+
+                    if (rootData) {
+                        const extractPackets = (obj) => {
+                            Object.keys(obj).forEach(key => {
+                                const val = obj[key];
+                                if (val && typeof val === 'object') {
+                                    // Identify if this is a packet (has price/date/recNo)
+                                    // or a folder (Year/Month)
+                                    if ((val.price !== undefined || val.recNo !== undefined) && val.date !== undefined) {
+                                        flattenedPackets.push({...val, key: key, sourceRoot: rootNode});
+                                    } else {
+                                        // Recursively dig deeper (Year -> Month)
+                                        extractPackets(val);
+                                    }
+                                }
+                            });
+                        };
+                        extractPackets(rootData);
+                    }
+
+                    tempIncomeStorage[rootNode] = flattenedPackets;
+
+                    // Combine all results
+                    allIncome = [
+                        ...tempIncomeStorage.packets,
+                        ...tempIncomeStorage.courier_packets,
+                        ...tempIncomeStorage.ticketing_packets
+                    ];
+
+                    applyFilters();
                 });
-                applyFilters();
             });
         }
+
         function applyTimeFilter(data) {
             const filter = timeFilter.value;
             const currentDate = new Date();
@@ -232,12 +275,12 @@
                 }
             });
         }
+
         function applySearchFilter(data, isIncome = false) {
             const keyword = searchInput.value.toLowerCase().trim();
             if (!keyword) return data;
             return data.filter(item => {
                 if (isIncome) {
-                    // Fields common to both or only in courier
                     let searchFields = [
                         item.recNo,
                         item.date, 
@@ -245,9 +288,9 @@
                         item.update, 
                         item.receiverName, 
                         item.receiverAddress,
-                        item.senderName,
+                        item.senderName
                     ];
-                    // Add ticketing-specific fields if they exist
+                    // Only add ticketing fields if applicable
                     if (item.entryType === 'ticketing') {
                         searchFields.push(
                             item.passengerName,
@@ -261,12 +304,13 @@
                         }
                     }
                     return searchFields.some(field => field && field.toString().toLowerCase().includes(keyword));
-                } else { // Expenses
+                } else {
                     const searchFields = [item.date, item.price, item.details];
                     return searchFields.some(field => field && field.toString().toLowerCase().includes(keyword));
                 }
             });
         }
+
         function applyFilters() {
             const timeFilteredExpenses = applyTimeFilter(allExpenses);
             const timeFilteredIncome = applyTimeFilter(allIncome);
@@ -276,6 +320,7 @@
             displayIncome();
             updateStats();
         }
+
         function handleSearch() {
             const hasSearch = searchInput.value.trim().length > 0;
             if (hasSearch && !isEditing) {
@@ -285,6 +330,7 @@
             }
             applyFilters();
         }
+
         function displayExpenses() {
             const tbody = document.querySelector('#expensesTable tbody');
             const noData = document.getElementById('expensesNoData');
@@ -306,6 +352,7 @@
                 tbody.appendChild(row);
             });
         }
+
         function displayIncome() {
             const tbody = document.querySelector('#incomeTable tbody');
             const noData = document.getElementById('incomeNoData');
@@ -323,19 +370,19 @@
                 let name = '-';
                 let details = '-';
 
-                // Handle new 'ticketing' entries
                 if (income.entryType === 'ticketing') {
-                    reference = income.pnrNumber || income.ticketNumber || '-';
+                    reference = income.pnrNumber || income.ticketNumber || 'Ticket';
                     name = income.passengerName || '-';
                     if (income.flightSegments && income.flightSegments.length > 0) {
                         const firstSegment = income.flightSegments[0];
                         const lastSegment = income.flightSegments[income.flightSegments.length - 1];
-                        details = `${firstSegment.depAirport || '?'} → ${lastSegment.arrAirport || '?'}`;
+                        details = `✈️ ${firstSegment.depAirport || '?'} → ${lastSegment.arrAirport || '?'}`;
                     }
-                } else { // Handle old 'courier' entries
-                    reference = income.update || '-';
+                } else { 
+                    // Courier (default)
+                    reference = income.recNo ? `C-${income.recNo}` : '-';
                     name = income.receiverName || income.senderName || '-';
-                    details = income.receiverAddress || '-';
+                    details = income.update ? `📍 ${income.update}` : (income.receiverAddress || '-');
                 }
 
                 row.innerHTML = `
@@ -348,6 +395,7 @@
                 tbody.appendChild(row);
             });
         }
+
         function updateStats() {
             const totalIncomeAmount = filteredIncome.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
             const totalExpensesAmount = filteredExpenses.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
@@ -358,6 +406,7 @@
             balanceElement.textContent = `Rs ${balance.toFixed(2)}`;
             balanceElement.className = `stat-value ${balance >= 0 ? 'positive' : 'negative'}`;
         }
+
         function handleViewChange() {
             const view = viewSelect.value;
             switch (view) {
@@ -375,6 +424,7 @@
                     break;
             }
         }
+
         function addExpense() {
             const date = document.getElementById('expenseDate').value;
             const price = document.getElementById('expensePrice').value;
@@ -393,6 +443,7 @@
             }
             clearForm();
         }
+
         function editExpense(key) {
             const expense = allExpenses.find(exp => exp.key === key);
             if (!expense) return;
@@ -404,6 +455,7 @@
             addSection.classList.add('show');
             addSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
+
         function clearForm() {
             document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
             document.getElementById('expensePrice').value = '';
@@ -412,13 +464,11 @@
                 addSection.classList.remove('show');
             }
         }
+
         auth.onAuthStateChanged(user => {
             if (user && user.uid === ADMIN_UID) {
-                // User is the correct admin. Allow the page to continue loading.
                 console.log("Admin access verified for expenses page.");
             } else {
-                // User is either not logged in, or is the wrong user.
-                // Redirect them to the main login page.
                 console.log("Access denied. Redirecting to login page...");
                 window.location.href = 'index.html';
             }
