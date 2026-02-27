@@ -638,6 +638,19 @@
       color: white;
     }
 
+    /* Auto-update Pulse Animation */
+    @keyframes greenPulse {
+      0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+    }
+
+    .auto-update-glow {
+      animation: greenPulse 2s infinite;
+      border-color: var(--accent-green) !important;
+      background-color: rgba(76, 175, 80, 0.05) !important;
+    }
+
   </style>
   <title>By Success</title>
   <script type="module">
@@ -849,6 +862,7 @@
     let searchTerm = '';
     let currentMode = 'courier';
     let currentEditingPacket = null;
+    let isAutoUpdateMode = true;
     let actionHistory = [];
     const MAX_HISTORY_SIZE = 10;
     window.geminiApiKey = null;
@@ -861,11 +875,30 @@
       return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     }
 
+    function disableAutoUpdate() {
+        if (!isAutoUpdateMode) return;
+        isAutoUpdateMode = false;
+        document.getElementById('recNo').classList.remove('auto-update-glow');
+    }
+
+    function enableAutoUpdate() {
+        isAutoUpdateMode = true;
+        suggestNextRecNo();
+    }
+
     function suggestNextRecNo() {
-        if (currentEditingPacket) return;
+        if (currentEditingPacket) {
+            disableAutoUpdate();
+            return;
+        }
+        
+        if (!isAutoUpdateMode) return;
+
         const relevantPackets = allPackets.filter(p => (p.entryType || 'courier') === currentMode);
         const maxRecNo = relevantPackets.length > 0 ? Math.max(0, ...relevantPackets.map(p => parseInt(p.recNo, 10)).filter(n => !isNaN(n))) : 0;
-        document.getElementById('recNo').value = maxRecNo + 1;
+        const recNoInput = document.getElementById('recNo');
+        recNoInput.value = maxRecNo + 1;
+        recNoInput.classList.add('auto-update-glow');
     }
 
     function setMode(mode) {
@@ -1738,6 +1771,42 @@
     }
     window.deletePacket = deletePacket;
 
+    function setupRealtimeListeners() {
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const dataRoots = ['packets', 'courier_packets', 'ticketing_packets', 'manifest_packets'];
+
+        dataRoots.forEach(root => {
+            const path = `${root}/${year}/${month}`;
+            database.ref(path).on('child_added', (snapshot) => {
+                const key = snapshot.key;
+                if (!processedKeys.has(key)) {
+                    const packet = { ...snapshot.val(), key: key, path: `${path}/${key}` };
+                    allPackets.unshift(packet);
+                    processedKeys.add(key);
+                    displayResults();
+                    suggestNextRecNo();
+                }
+            });
+            database.ref(path).on('child_changed', (snapshot) => {
+                const key = snapshot.key;
+                const index = allPackets.findIndex(p => p.key === key);
+                if (index > -1) {
+                    allPackets[index] = { ...snapshot.val(), key: key, path: `${path}/${key}` };
+                    displayResults();
+                }
+            });
+            database.ref(path).on('child_removed', (snapshot) => {
+                const key = snapshot.key;
+                allPackets = allPackets.filter(p => p.key !== key);
+                processedKeys.delete(key);
+                displayResults();
+                suggestNextRecNo();
+            });
+        });
+    }
+
     async function progressivelyLoadData() {
         const loadingStatus = document.getElementById('loadingStatus');
         const date = new Date();
@@ -1761,6 +1830,7 @@
             if (newPackets.length > 0) {
                 allPackets.push(...newPackets);
                 displayResults();
+                suggestNextRecNo();
             }
         };
         loadingStatus.textContent = 'Loading recent records...';
@@ -1836,6 +1906,11 @@
       setMode(savedMode);
       addFlightSegment();
       initializeSpeechRecognition();
+
+      const recNoInput = document.getElementById('recNo');
+      recNoInput.addEventListener('mousedown', disableAutoUpdate);
+      recNoInput.addEventListener('input', disableAutoUpdate);
+
       document.getElementById('dateLimit').addEventListener('change', searchData);
       document.getElementById('ai-record-btn').addEventListener('click', toggleRecording);
       document.getElementById('ai-send-btn').addEventListener('click', sendAiFollowUp);
@@ -1856,6 +1931,7 @@
           showAiMessage("AI features disabled. API key not configured.", "error");
         }
       });
+      setupRealtimeListeners();
       progressivelyLoadData();
     }
 
