@@ -1167,11 +1167,53 @@
         actionsContainer.innerHTML = `<button onclick="editPacket('${packet.key}')">Edit</button><button onclick="deletePacket('${packet.key}')" style="background-color: var(--accent-red-alt);">Delete</button><button onclick="copyToClipboard('${packet.key}')">Copy</button><button onclick="copyForPrint('${packet.key}')">Print</button><button onclick="sendMail('${packet.key}')")">Mail</button><button id="billBtn-${packet.key}" onclick="downloadBill('${packet.key}')">Bill</button>`;
         packetDiv.appendChild(actionsContainer);
         resultsContainer.appendChild(packetDiv);
-                if (packet.entryType === 'manifest') {
+                                if (packet.entryType === 'manifest') {
             document.getElementById(`billBtn-${packet.key}`).style.display = 'none';
         }
       });
+      calculateAndDisplayTotal(results);
+      calculateAndDisplayTotalPackages(results);
     }
+
+    function highlightText(text) {
+      if (!searchTerm || text === null || typeof text === 'undefined') return text || '';
+      const textStr = text.toString();
+      const searchStr = searchTerm.toLowerCase();
+      const lowerText = textStr.toLowerCase();
+      if (searchStr === '' || !lowerText.includes(searchStr)) return textStr;
+      let result = '';
+      let lastIndex = 0;
+      let index;
+      while ((index = lowerText.indexOf(searchStr, lastIndex)) !== -1) {
+        result += textStr.substring(lastIndex, index);
+        result += `<span class="highlight">${textStr.substring(index, index + searchStr.length)}</span>`;
+        lastIndex = index + searchStr.length;
+      }
+      result += textStr.substring(lastIndex);
+      return result;
+    }
+    window.highlightText = highlightText;
+    
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      searchTerm = '';
+      document.getElementById('dateLimit').value = '';
+      displayResults();
+    }
+    window.clearSearch = clearSearch;
+
+    function handleSearchClick() {
+      searchData();
+      hideEntrySection();
+    }
+    window.handleSearchClick = handleSearchClick;
+
+    document.getElementById('searchInput').addEventListener('keyup', function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        document.getElementById('Search').click();
+      }
+    });
 
     function downloadBill(key) {
       const packet = allPackets.find(p => p.key === key);
