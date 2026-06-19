@@ -1167,57 +1167,17 @@
         actionsContainer.innerHTML = `<button onclick="editPacket('${packet.key}')">Edit</button><button onclick="deletePacket('${packet.key}')" style="background-color: var(--accent-red-alt);">Delete</button><button onclick="copyToClipboard('${packet.key}')">Copy</button><button onclick="copyForPrint('${packet.key}')">Print</button><button onclick="sendMail('${packet.key}')")">Mail</button><button id="billBtn-${packet.key}" onclick="downloadBill('${packet.key}')">Bill</button>`;
         packetDiv.appendChild(actionsContainer);
         resultsContainer.appendChild(packetDiv);
-        if (packet.entryType === 'ticketing' || packet.entryType === 'manifest') {
+                if (packet.entryType === 'manifest') {
             document.getElementById(`billBtn-${packet.key}`).style.display = 'none';
         }
       });
-      calculateAndDisplayTotal(results);
-      calculateAndDisplayTotalPackages(results);
     }
-
-    function highlightText(text) {
-      if (!searchTerm || text === null || typeof text === 'undefined') return text || '';
-      const textStr = text.toString();
-      const searchStr = searchTerm.toLowerCase();
-      const lowerText = textStr.toLowerCase();
-      if (searchStr === '' || !lowerText.includes(searchStr)) return textStr;
-      let result = '';
-      let lastIndex = 0;
-      let index;
-      while ((index = lowerText.indexOf(searchStr, lastIndex)) !== -1) {
-        result += textStr.substring(lastIndex, index);
-        result += `<span class="highlight">${textStr.substring(index, index + searchStr.length)}</span>`;
-        lastIndex = index + searchStr.length;
-      }
-      result += textStr.substring(lastIndex);
-      return result;
-    }
-    window.highlightText = highlightText;
-    
-    function clearSearch() {
-      document.getElementById('searchInput').value = '';
-      searchTerm = '';
-      document.getElementById('dateLimit').value = '';
-      displayResults();
-    }
-    window.clearSearch = clearSearch;
-
-    function handleSearchClick() {
-      searchData();
-      hideEntrySection();
-    }
-    window.handleSearchClick = handleSearchClick;
-
-    document.getElementById('searchInput').addEventListener('keyup', function (event) {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        document.getElementById('Search').click();
-      }
-    });
 
     function downloadBill(key) {
       const packet = allPackets.find(p => p.key === key);
-      if (!packet || packet.entryType !== 'courier') return; 
+      if (!packet) return;
+      if (packet.entryType !== 'courier' && packet.entryType !== 'ticketing') return;
+
       const canvas = document.createElement('canvas');
       canvas.width = 2417;
       canvas.height = 1157;
@@ -1232,11 +1192,40 @@
         ctx.font = ' 44px Arial';
         ctx.fillText(`${packet.recNo}`, 250, 397);
         ctx.fillText(`${packet.date}`, 1890, 394);
-        ctx.fillText(`${packet.senderName}`, 570, 490);
-        ctx.fillText(`${packet.senderContact}`, 1450, 490);
-        ctx.fillText(`${packet.senderAddress}`, 320, 585);
-        ctx.fillText(`${packet.receiverAddress}`, 1158, 586);
-        ctx.fillText(`${packet.billItem}    ${packet.trackingNumber}`, 150, 865)
+
+        if (packet.entryType === 'courier') {
+          ctx.fillText(`${packet.senderName}`, 570, 490);
+          ctx.fillText(`${packet.senderContact}`, 1450, 490);
+          ctx.fillText(`${packet.senderAddress}`, 320, 585);
+          ctx.fillText(`${packet.receiverAddress}`, 1158, 586);
+          ctx.fillText(`${packet.billItem}    ${packet.trackingNumber}`, 150, 865);
+        } else if (packet.entryType === 'ticketing') {
+          ctx.fillText(`${packet.passengerName}`, 570, 490);
+          ctx.fillText(`${packet.passengerContact}`, 1450, 490);
+
+          let fromText = '';
+          let toText = '';
+          if (packet.flightSegments && packet.flightSegments.length > 0) {
+            const extractBracketContent = (str) => {
+              if (!str) return '';
+              const match = str.match(/\(([^)]+)\)/);
+              return match ? match[1].trim() : str.trim();
+            };
+
+            const firstSegment = packet.flightSegments[0];
+            const lastSegment = packet.flightSegments[packet.flightSegments.length - 1];
+            fromText = extractBracketContent(firstSegment.depAirport);
+            toText = extractBracketContent(lastSegment.arrAirport);
+          }
+
+          ctx.fillText(fromText, 320, 585);
+          ctx.fillText(toText, 1158, 586);
+          
+          const pnrText = packet.pnrNumber || '';
+          const remarksText = packet.remarks || '';
+          ctx.fillText(`${pnrText}    ${remarksText}`, 150, 865);
+        }
+
         ctx.font = 'bold 58px Arial';
         ctx.fillText(`${packet.price}.00`, 230, 995);
         const amountInWords = numberToWords(packet.price);
