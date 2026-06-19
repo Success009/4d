@@ -1,1 +1,251 @@
-/** * @file js/ai-voice.js * @description Manages AI extractions schemas, voice-controlled text additions, audio capture processing, and file parts mappings. */import { state } from './state.js';import { showAiMessage, showModal } from './utils.js';import { populateForm, getFormDataAsObject } from './form-handlers.js';/**Converts standard file structures to Gemini inlineData formats.@param {File} file - Target file.@returns {Promise<Object>} Formatted object part.*/export async function fileToGenerativePart(file) {return new Promise((resolve, reject) => {const reader = new FileReader();reader.onloadend = () => {const imagePart = { inlineData: { data: reader.result.split(','), mimeType: file.type } };state.lastAnalyzedImagePart = imagePart;resolve(imagePart);};reader.onerror = reject;reader.readAsDataURL(file);});}/**Defines Gemini extraction schemas for both Courier and Ticketing modes.@returns {Object} JSON Schema structure definition.*/export function getAiSchema() {const { GenaiType } = window;if (!GenaiType) {// Fallback placeholder structure if module loaded prior to ESM run script loaderreturn null;}if (state.currentMode === 'ticketing') {return {type: GenaiType.OBJECT,properties: {recNo: { type: GenaiType.STRING },date: { type: GenaiType.STRING, description: "Format as YYYY-MM-DD" },email: { type: GenaiType.STRING },price: { type: GenaiType.NUMBER },passengerName: { type: GenaiType.STRING },passengerContact: { type: GenaiType.STRING },pnrNumber: { type: GenaiType.STRING },ticketNumber: { type: GenaiType.STRING },tripType: { type: GenaiType.STRING, enum: ["ONE_WAY", "ROUND_TRIP"] },baseFare: { type: GenaiType.NUMBER },taxes: { type: GenaiType.NUMBER },luggageWeight: { type: GenaiType.STRING },remarks: { type: GenaiType.STRING },flightSegments: {type: GenaiType.ARRAY,items: {type: GenaiType.OBJECT,properties: {airline: { type: GenaiType.STRING },flightNo: { type: GenaiType.STRING },aircraft: { type: GenaiType.STRING },depAirport: { type: GenaiType.STRING },depDateTime: { type: GenaiType.STRING, description: "Format as YYYY-MM-DDTHH:mm" },arrAirport: { type: GenaiType.STRING },arrDateTime: { type: GenaiType.STRING, description: "Format as YYYY-MM-DDTHH:mm" },terminal: { type: GenaiType.STRING },}}},ai_notes: { type: GenaiType.STRING, description: "Any notes or uncertainties about the extraction." }}};} else {return {type: GenaiType.OBJECT,properties: {recNo: { type: GenaiType.STRING },date: { type: GenaiType.STRING, description: "Format as YYYY-MM-DD" },email: { type: GenaiType.STRING },price: { type: GenaiType.NUMBER },senderName: { type: GenaiType.STRING },senderAddress: { type: GenaiType.STRING },senderContact: { type: GenaiType.STRING },weightTicket: { type: GenaiType.STRING },receiverName: { type: GenaiType.STRING },receiverAddress: { type: GenaiType.STRING },receiverContact: { type: GenaiType.STRING },update: { type: GenaiType.STRING, description: "This is the 'Gateway' field." },billItem: { type: GenaiType.STRING },trackingNumber: { type: GenaiType.STRING, description: "Comma-separated if multiple" },deliveredDate: { type: GenaiType.STRING, description: "Format as YYYY-MM-DD" },courierTicket: { type: GenaiType.STRING, description: "This is the 'Item' description field." },ai_notes: { type: GenaiType.STRING, description: "Any notes or uncertainties about the extraction." }}};}}/**Connects and runs generative intelligence extractions on source arrays.@param {Array<Object>} parts - File parts and prompts.@param {boolean} [isFollowUp=false] - Multi-turn conversational flow indicator.*/export async function runGeminiExtraction(parts, isFollowUp = false) {if (!state.geminiApiKey) {showAiMessage("AI features disabled. API key not configured.", "error");return;}const { GoogleGenAI } = window;const ai = new GoogleGenAI({ apiKey: state.geminiApiKey });const systemInstruction = "You are an intelligent data entry assistant for 'Four Direction Travels & Tours', a company handling courier and airline tickets. Extract information from the user's request into a JSON object based on the provided schema. Do not invent data. If a value is not present, use an empty string. If generating a new entry, suggest the next receipt number based on the last one provided.";const schema = getAiSchema();try {const response = await ai.models.generateContent({model: "gemini-2.5-flash",contents: { parts: parts },config: {systemInstruction: systemInstruction,responseMimeType: "application/json",responseSchema: schema,},});const data = JSON.parse(response.text);populateForm(data);const aiNote = data.ai_notes || (isFollowUp ? "Form updated based on your request." : "Data extracted successfully! Please review.");showAiMessage(aiNote, "ai");} catch (error) {console.error("AI Extraction Error:", error);const errorMessage = isFollowUp ? "Sorry, I couldn't understand that request. Please try rephrasing." : "Failed to extract data. The image might be unclear or the format is not recognized.";showAiMessage(errorMessage, "error");}}/**Triggers conversational conversational form editing followups based on speech input.*/export async function sendAiFollowUp() {const userInput = document.getElementById('ai-user-input').value.trim();if (!userInput) return;showAiMessage(userInput, 'user');document.getElementById('ai-user-input').value = '';showAiMessage("Thinking...", "info");const currentData = getFormDataAsObject();const currentDataString = JSON.stringify(currentData, null, 2);const lastRecNo = state.allPackets.length > 0 ? Math.max(...state.allPackets.map(p => parseInt(p.recNo) || 0)) : 0;const prompt = A user has uploaded a document (image attached if available) for data entry. The current state of the form is provided as a JSON object. The user now wants to make changes using a voice command.\nYour task is to analyze the user's command, the attached image, and the current data. Then, generate a complete, updated JSON object that incorporates the user's request. Adhere to the required schema.\nThe last used receipt number was ${lastRecNo}.\n\nCurrent Data:\n${currentDataString}\n\nUser's Command (in Nepali or English):\n"${userInput}"\n\nBased on this command, review the image and the current data, and provide the final, corrected JSON object. Respond ONLY with the JSON object.;const parts = [ ];if (state.lastAnalyzedImagePart) {parts.push(state.lastAnalyAnalyzedImagePart);}parts.push({ text: prompt });await runGeminiExtraction(parts, true);}/**Initiates the document image analysis autofill workflow.*/export async function handleAutofill() {const fileInput = document.getElementById('imageUpload');if (fileInput.files.length === 0) {showModal("No File Selected", "Please select an image or PDF file first.");return;}document.getElementById('ai-chat-history').innerHTML = '';showAiMessage("Analyzing file...", "info");const file = fileInput.files;try {const imagePart = await fileToGenerativePart(file);const lastRecNo = state.allPackets.length > 0 ? Math.max(...state.allPackets.map(p => parseInt(p.recNo) || 0)) : 0;const initialPrompt = state.currentMode === 'ticketing'? Extract flight ticket details. The last receipt number was ${lastRecNo}.: Extract courier receipt details. The last receipt number was ${lastRecNo}.; code Codedownloadcontent_copyexpand_lessawait runGeminiExtraction([imagePart, { text: initialPrompt }], false);} catch (error) {console.error(error);showAiMessage("Could not process the file.", "error");}}/**Initializes the Web Speech recognition controls.*/export function initializeSpeechRecognition() {const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;if (!SpeechRecognition) {console.warn("Speech Recognition not supported in this browser.");const recordBtn = document.getElementById('ai-record-btn');if (recordBtn) recordBtn.style.display = 'none';return;}state.recognition = new SpeechRecognition();state.recognition.continuous = false;state.recognition.lang = 'ne-NP';state.recognition.interimResults = true;state.recognition.maxAlternatives = 1;state.recognition.onresult = (event) => {let transcript = '';for (let i = event.resultIndex; i < event.results.length; ++i) {transcript += event.results[i].transcript;}document.getElementById('ai-user-input').value = transcript;};state.recognition.onerror = (event) => {console.error('Speech recognition error', event.error);showAiMessage(Speech error: ${event.error}, "error");};state.recognition.onstart = () => {state.isRecording = true;const recordBtn = document.getElementById('ai-record-btn');if (recordBtn) {recordBtn.classList.add('recording');recordBtn.textContent = '⏹️';}};state.recognition.onend = () => {state.isRecording = false;const recordBtn = document.getElementById('ai-record-btn');if (recordBtn) {recordBtn.classList.remove('recording');recordBtn.textContent = '🎤';}};}/**Toggles microphone capture recordings state.*/export function toggleRecording() {if (!state.recognition) return;if (state.isRecording) {state.recognition.stop();} else {state.recognition.start();}}// Bind to window for HTML event listenerswindow.handleAutofill = handleAutofill;
+/**
+ * @file js/ai-voice.js
+ * @description Manages AI extractions schemas, voice-controlled text additions, audio capture processing, and file parts mappings.
+ */
+
+import { state } from './state.js';
+import { showAiMessage, showModal } from './utils.js';
+import { populateForm, getFormDataAsObject } from './form-handlers.js';
+
+/**
+ * Converts standard file structures to Gemini inlineData formats.
+ * @param {File} file - Target file.
+ * @returns {Promise<Object>} Formatted object part.
+ */
+export async function fileToGenerativePart(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const imagePart = { inlineData: { data: reader.result.split(',')[1], mimeType: file.type } };
+            state.lastAnalyzedImagePart = imagePart;
+            resolve(imagePart);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+/**
+ * Defines Gemini extraction schemas for both Courier and Ticketing modes.
+ * @returns {Object} JSON Schema structure definition.
+ */
+export function getAiSchema() {
+    const { GenaiType } = window;
+    if (!GenaiType) {
+        return null;
+    }
+    
+    if (state.currentMode === 'ticketing') {
+        return {
+            type: GenaiType.OBJECT,
+            properties: {
+                recNo: { type: GenaiType.STRING },
+                date: { type: GenaiType.STRING, description: "Format as YYYY-MM-DD" },
+                email: { type: GenaiType.STRING },
+                price: { type: GenaiType.NUMBER },
+                passengerName: { type: GenaiType.STRING },
+                passengerContact: { type: GenaiType.STRING },
+                pnrNumber: { type: GenaiType.STRING },
+                ticketNumber: { type: GenaiType.STRING },
+                tripType: { type: GenaiType.STRING, enum: ["ONE_WAY", "ROUND_TRIP"] },
+                baseFare: { type: GenaiType.NUMBER },
+                taxes: { type: GenaiType.NUMBER },
+                luggageWeight: { type: GenaiType.STRING },
+                remarks: { type: GenaiType.STRING },
+                flightSegments: {
+                    type: GenaiType.ARRAY,
+                    items: {
+                        type: GenaiType.OBJECT,
+                        properties: {
+                            airline: { type: GenaiType.STRING },
+                            flightNo: { type: GenaiType.STRING },
+                            aircraft: { type: GenaiType.STRING },
+                            depAirport: { type: GenaiType.STRING },
+                            depDateTime: { type: GenaiType.STRING, description: "Format as YYYY-MM-DDTHH:mm" },
+                            arrAirport: { type: GenaiType.STRING },
+                            arrDateTime: { type: GenaiType.STRING, description: "Format as YYYY-MM-DDTHH:mm" },
+                            terminal: { type: GenaiType.STRING },
+                        }
+                    }
+                },
+                ai_notes: { type: GenaiType.STRING, description: "Any notes or uncertainties about the extraction." }
+            }
+        };
+    } else {
+        return {
+            type: GenaiType.OBJECT,
+            properties: {
+                recNo: { type: GenaiType.STRING },
+                date: { type: GenaiType.STRING, description: "Format as YYYY-MM-DD" },
+                email: { type: GenaiType.STRING },
+                price: { type: GenaiType.NUMBER },
+                senderName: { type: GenaiType.STRING },
+                senderAddress: { type: GenaiType.STRING },
+                senderContact: { type: GenaiType.STRING },
+                weightTicket: { type: GenaiType.STRING },
+                receiverName: { type: GenaiType.STRING },
+                receiverAddress: { type: GenaiType.STRING },
+                receiverContact: { type: GenaiType.STRING },
+                update: { type: GenaiType.STRING, description: "This is the 'Gateway' field." },
+                billItem: { type: GenaiType.STRING },
+                trackingNumber: { type: GenaiType.STRING, description: "Comma-separated if multiple" },
+                deliveredDate: { type: GenaiType.STRING, description: "Format as YYYY-MM-DD" },
+                courierTicket: { type: GenaiType.STRING, description: "This is the 'Item' description field." },
+                ai_notes: { type: GenaiType.STRING, description: "Any notes or uncertainties about the extraction." }
+            }
+        };
+    }
+}
+
+/**
+ * Connects and runs generative intelligence extractions on source arrays.
+ * @param {Array<Object>} parts - File parts and prompts.
+ * @param {boolean} [isFollowUp=false] - Multi-turn conversational flow indicator.
+ */
+export async function runGeminiExtraction(parts, isFollowUp = false) {
+    if (!state.geminiApiKey) {
+        showAiMessage("AI features disabled. API key not configured.", "error");
+        return;
+    }
+    const { GoogleGenAI } = window;
+    const ai = new GoogleGenAI({ apiKey: state.geminiApiKey });
+    const systemInstruction = "You are an intelligent data entry assistant for 'Four Direction Travels & Tours', a company handling courier and airline tickets. Extract information from the user's request into a JSON object based on the provided schema. Do not invent data. If a value is not present, use an empty string. If generating a new entry, suggest the next receipt number based on the last one provided.";
+    const schema = getAiSchema();
+    
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: parts },
+            config: {
+                systemInstruction: systemInstruction,
+                responseMimeType: "application/json",
+                responseSchema: schema,
+            },
+        });
+        const data = JSON.parse(response.text);
+        populateForm(data);
+        const aiNote = data.ai_notes || (isFollowUp ? "Form updated based on your request." : "Data extracted successfully! Please review.");
+        showAiMessage(aiNote, "ai");
+    } catch (error) {
+        console.error("AI Extraction Error:", error);
+        const errorMessage = isFollowUp ? "Sorry, I couldn't understand that request. Please try rephrasing." : "Failed to extract data. The image might be unclear or the format is not recognized.";
+        showAiMessage(errorMessage, "error");
+    }
+}
+
+/**
+ * Triggers conversational form editing followups based on speech input.
+ */
+export async function sendAiFollowUp() {
+    const userInput = document.getElementById('ai-user-input').value.trim();
+    if (!userInput) return;
+    
+    showAiMessage(userInput, 'user');
+    document.getElementById('ai-user-input').value = '';
+    showAiMessage("Thinking...", "info");
+    
+    const currentData = getFormDataAsObject();
+    const currentDataString = JSON.stringify(currentData, null, 2);
+    const lastRecNo = state.allPackets.length > 0 ? Math.max(...state.allPackets.map(p => parseInt(p.recNo) || 0)) : 0;
+    
+    const prompt = `A user has uploaded a document (image attached if available) for data entry. The current state of the form is provided as a JSON object. The user now wants to make changes using a voice command.\nYour task is to analyze the user's command, the attached image, and the current data. Then, generate a complete, updated JSON object that incorporates the user's request. Adhere to the required schema.\nThe last used receipt number was ${lastRecNo}.\n\nCurrent Data:\n${currentDataString}\n\nUser's Command (in Nepali or English):\n"${userInput}"\n\nBased on this command, review the image and the current data, and provide the final, corrected JSON object. Respond ONLY with the JSON object.`;
+    
+    const parts = [ ];
+    if (state.lastAnalyzedImagePart) {
+        parts.push(state.lastAnalyzedImagePart);
+    }
+    parts.push({ text: prompt });
+    await runGeminiExtraction(parts, true);
+}
+
+/**
+ * Initiates the document image analysis autofill workflow.
+ */
+export async function handleAutofill() {
+    const fileInput = document.getElementById('imageUpload');
+    if (fileInput.files.length === 0) {
+        showModal("No File Selected", "Please select an image or PDF file first.");
+        return;
+    }
+    document.getElementById('ai-chat-history').innerHTML = '';
+    showAiMessage("Analyzing file...", "info");
+    const file = fileInput.files[0];
+    
+    try {
+        const imagePart = await fileToGenerativePart(file);
+        const lastRecNo = state.allPackets.length > 0 ? Math.max(...state.allPackets.map(p => parseInt(p.recNo) || 0)) : 0;
+        const initialPrompt = state.currentMode === 'ticketing' 
+            ? `Extract flight ticket details. The last receipt number was ${lastRecNo}.` 
+            : `Extract courier receipt details. The last receipt number was ${lastRecNo}.`;
+            
+        await runGeminiExtraction([imagePart, { text: initialPrompt }], false);
+    } catch (error) {
+        console.error(error);
+        showAiMessage("Could not process the file.", "error");
+    }
+}
+
+/**
+ * Initializes the Web Speech recognition controls.
+ */
+export function initializeSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        console.warn("Speech Recognition not supported in this browser.");
+        const recordBtn = document.getElementById('ai-record-btn');
+        if (recordBtn) recordBtn.style.display = 'none';
+        return;
+    }
+    
+    state.recognition = new SpeechRecognition();
+    state.recognition.continuous = false;
+    state.recognition.lang = 'ne-NP';
+    state.recognition.interimResults = true;
+    state.recognition.maxAlternatives = 1;
+    
+    state.recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            transcript += event.results[i][0].transcript;
+        }
+        document.getElementById('ai-user-input').value = transcript;
+    };
+    
+    state.recognition.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        showAiMessage(`Speech error: ${event.error}`, "error");
+    };
+    
+    state.recognition.onstart = () => {
+        state.isRecording = true;
+        const recordBtn = document.getElementById('ai-record-btn');
+        if (recordBtn) {
+            recordBtn.classList.add('recording');
+            recordBtn.textContent = '⏹️';
+        }
+    };
+    
+    state.recognition.onend = () => {
+        state.isRecording = false;
+        const recordBtn = document.getElementById('ai-record-btn');
+        if (recordBtn) {
+            recordBtn.classList.remove('recording');
+            recordBtn.textContent = '🎤';
+        }
+    };
+}
+
+/**
+ * Toggles microphone capture recordings state.
+ */
+export function toggleRecording() {
+    if (!state.recognition) return;
+    if (state.isRecording) {
+        state.recognition.stop();
+    } else {
+        state.recognition.start();
+    }
+}
+
+// Bind to window for HTML event listeners
+window.handleAutofill = handleAutofill;
