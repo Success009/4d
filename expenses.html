@@ -121,10 +121,14 @@
                 <button class="add-button" onclick="addExpense()">Add Expense</button>
             </div>
         </div>
-        <div class="stats">
+                <div class="stats">
             <div class="stat-card">
-                <div class="stat-label">Total Income</div>
-                <div id="totalIncome" class="stat-value positive">Rs 0.00</div>
+                <div class="stat-label">Unmodified Income</div>
+                <div id="unmodifiedIncome" class="stat-value positive">Rs 0.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Modified Income</div>
+                <div id="modifiedIncome" class="stat-value positive">Rs 0.00</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Total Expenses</div>
@@ -471,17 +475,23 @@
         });
     }
 
-    function updateStats() {
-        // Uses updatedAmount for income calculation if it exists, otherwise falls back to price
-        const totalIncomeAmount = filteredIncome.reduce((sum, item) => {
+        function updateStats() {
+        // Modified Income: uses updatedAmount for income calculation if it exists, otherwise falls back to price
+        const modifiedIncomeAmount = filteredIncome.reduce((sum, item) => {
             const amount = (item.updatedAmount !== undefined && item.updatedAmount !== null) ? parseFloat(item.updatedAmount) : parseFloat(item.price || 0);
             return sum + amount;
         }, 0);
+
+        // Unmodified Income: always uses the original price
+        const unmodifiedIncomeAmount = filteredIncome.reduce((sum, item) => {
+            return sum + parseFloat(item.price || 0);
+        }, 0);
         
         const totalExpensesAmount = filteredExpenses.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
-        const balance = totalIncomeAmount - totalExpensesAmount;
+        const balance = modifiedIncomeAmount - totalExpensesAmount;
         
-        document.getElementById('totalIncome').textContent = `Rs ${totalIncomeAmount.toFixed(2)}`;
+        document.getElementById('unmodifiedIncome').textContent = `Rs ${unmodifiedIncomeAmount.toFixed(2)}`;
+        document.getElementById('modifiedIncome').textContent = `Rs ${modifiedIncomeAmount.toFixed(2)}`;
         document.getElementById('totalExpenses').textContent = `Rs ${totalExpensesAmount.toFixed(2)}`;
         
         const balanceElement = document.getElementById('totalBalance');
