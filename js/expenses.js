@@ -6,14 +6,14 @@
 
 // Initialize Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyD-K2DkVKhkza2KEo3sa3AGKXt6MJCBV6c",
-  authDomain: "d-data-storage-399801.firebaseapp.com",
-  databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
-  projectId: "d-data-storage-399801",
-  storageBucket: "d-data-storage-399801.firebasestorage.app",
-  messagingSenderId: "515303559494",
-  appId: "1:515303559494:web:45a267241b37980cec9547",
-  measurementId: "G-W8CJ6F0GL6"
+    apiKey: "AIzaSyC3pnVKpMYszW9XCEXkeOqIkAQUHXYdMRI",
+    authDomain: "d-data-storage-399801.firebaseapp.com",
+    databaseURL: "https://d-data-storage-399801-default-rtdb.firebaseio.com",
+    projectId: "d-data-storage-399801",
+    storageBucket: "d-data-storage-399801.appspot.com",
+    messagingSenderId: "515303559494",
+    appId: "1:515303559494:web:f108f881e01ee3ddec9547",
+    measurementId: "G-BECRQ4T8BP"
 };
 
 const app = firebase.initializeApp(firebaseConfig);
@@ -59,10 +59,24 @@ document.addEventListener('DOMContentLoaded', function() {
     timeFilter.addEventListener('change', applyFilters);
     viewSelect.addEventListener('change', handleViewChange);
 
-    // Infinite scroll for high performance on massive datasets
+        // Infinite scroll for high performance on massive datasets
     const incomeContainer = document.querySelector('#incomeSection .table-container');
     if (incomeContainer) {
         incomeContainer.addEventListener('scroll', handleTableScroll);
+    }
+
+    // Configure login submit behaviors
+    const loginBtn = document.getElementById('loginButton');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', performLogin);
+    }
+    const adminPasswordInput = document.getElementById('adminPassword');
+    if (adminPasswordInput) {
+        adminPasswordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                performLogin();
+            }
+        });
     }
 });
 
@@ -530,16 +544,38 @@ function clearForm() {
     }
 }
 
-// Strict Authentication Check
+// Authentication handlers
+export function performLogin() {
+    const adminPasswordInput = document.getElementById('adminPassword');
+    const loginError = document.getElementById('loginError');
+    const password = adminPasswordInput ? adminPasswordInput.value : '';
+    const email = "fourdirection02@gmail.com";
+
+    if (!password) {
+        if (loginError) loginError.textContent = 'Password is required.';
+        return;
+    }
+
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+        .then(() => auth.signInWithEmailAndPassword(email, password))
+        .catch(error => { 
+            if (loginError) loginError.textContent = 'Login failed: Incorrect password.'; 
+        });
+}
+
+// Strict Authentication Observer
 auth.onAuthStateChanged(user => {
+    const overlay = document.getElementById('loginOverlay');
     if (user && user.uid === ADMIN_UID) {
         console.log("Admin access verified for expenses page.");
+        if (overlay) overlay.classList.remove('visible');
     } else {
-        console.log("Access denied. Redirecting to login page...");
-        window.location.href = 'index.html';
+        console.log("Access denied. Showing login challenge...");
+        if (overlay) overlay.classList.add('visible');
     }
 });
 
 // Expose functions globally for inline HTML event handlers
+window.performLogin = performLogin;
 window.addExpense = addExpense;
 window.editExpense = editExpense;
