@@ -65,15 +65,24 @@
             background: #e1e5e9;
             color: #007bff;
         }
-        .un-updated {
+                .un-updated {
             text-decoration: underline;
-            color: #d32f2f;
+            color: #c62828;
+            font-weight: 600;
         }
+        tr.un-updated-row,
         .un-updated-row {
-            color: #d32f2f;
+            background-color: #ffebee !important;
+            color: #c62828 !important;
         }
+        tr.un-updated-row td,
         .un-updated-row td {
-            color: #d32f2f;
+            background-color: #ffebee !important;
+            color: #c62828 !important;
+        }
+        tr.un-updated-row:hover,
+        tr.un-updated-row:hover td {
+            background-color: #ffcdd2 !important;
         }
 
         @media (max-width:768px) {
@@ -189,6 +198,6 @@
             </div>
         </div>
     </div>
-        <script type="module" src="js/expenses.js"></script>
+        <script type="module" src="js/expenses.js?v=2"></script>
 </body>
 </html>

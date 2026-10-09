@@ -292,12 +292,7 @@ function displayIncome() {
         
         let amountHtml = `<span class="editable-amount ${!hasUpdatedAmount ? 'un-updated' : ''}" title="Click to edit" onclick="editAmount(this, '${income.fullPath}', ${displayAmount})">Rs ${displayAmount.toFixed(2)}</span>`;
 
-                if (!hasUpdatedAmount) {
-            row.style.color = '#d32f2f';
-            row.style.fontWeight = 'bold';
-        }
-
-                if (!hasUpdatedAmount) {
+                        if (!hasUpdatedAmount) {
             row.className = 'un-updated-row';
         }
 
